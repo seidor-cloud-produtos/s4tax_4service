@@ -11,14 +11,17 @@ CLASS main_process DEFINITION CREATE PUBLIC.
 
     INTERFACES: /s4tax/ijob_processor.
 
-    METHODS: constructor IMPORTING reporter TYPE REF TO /s4tax/ireporter OPTIONAL.
+    METHODS: constructor IMPORTING reporter          TYPE REF TO /s4tax/ireporter OPTIONAL
+                                   dao_pack_4service TYPE REF TO /s4tax/idao_pack_4service OPTIONAL.
 
   PROTECTED SECTION.
 
   PRIVATE SECTION.
     DATA: reporter                  TYPE REF TO /s4tax/ireporter,
           api_4service              TYPE REF TO /s4tax/iapi_4service,
-          appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o.
+          appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
+          dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
+          dao_4service_sheet        TYPE REF TO /s4tax/idao_4service_sheet.
 
 ENDCLASS.
 
@@ -51,6 +54,13 @@ CLASS main_process IMPLEMENTATION.
       CATCH /s4tax/cx_http /s4tax/cx_auth.
     ENDTRY.
 
+    me->dao_4service_sheet = dao_4service_sheet.
+
+    IF me->dao_pack_4service IS INITIAL.
+      me->dao_pack_4service = /s4tax/dao_pack_4service=>default_instance(  ).
+    ENDIF.
+
+    me->dao_4service_sheet = me->dao_pack_4service->four_service_sheet(  ).
   ENDMETHOD.
 
   METHOD /s4tax/ijob_processor~post_process.
@@ -72,11 +82,51 @@ CLASS main_process IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD /s4tax/ijob_processor~process.
+
+    DATA: appoint_data_list   TYPE /s4tax/s_apprvd_appointments_t,
+          appoint_data        TYPE /s4tax/s_apprvd_appointments,
+          t4s_sheet           TYPE /s4tax/t4s_sheet,
+          t4s_sheet_table     TYPE /s4tax/t4s_sheet_t,
+          service_sheet_list  TYPE /s4tax/4s_sheet_t,
+          branch              TYPE /s4tax/s_appointments_branches,
+          provider            TYPE /s4tax/s_appoint_providers,
+          employee            TYPE /s4tax/s_appoint_employees,
+          confirm_appointment TYPE /s4tax/s_confirm_apointments.
+
     TRY.
         me->appoint_apvd_by_providers = api_4service->list_appoint_apvd_by_providers( ).
 
+        appoint_data_list = me->appoint_apvd_by_providers-data.
+
+        LOOP AT appoint_data_list INTO appoint_data.
+          t4s_sheet-start_period = appoint_data-period-start_period.
+          t4s_sheet-end_period   = appoint_data-period-end_period.
+
+          LOOP AT appoint_data-branches INTO branch.
+            t4s_sheet-branch_id = branch-branch_id.
+
+            LOOP AT branch-providers INTO provider.
+              t4s_sheet-provider_fiscal_id_number = provider-provider_fiscal_id_number.
+
+              LOOP AT provider-employees INTO employee.
+                t4s_sheet-employment_erp_code = employee-employment_erp_code.
+
+                LOOP AT employee-confirm_appointments INTO confirm_appointment.
+                  t4s_sheet-appointment_id = confirm_appointment-id.
+                  t4s_sheet-approved_value = confirm_appointment-approved_period_income.
+
+                  APPEND t4s_sheet TO t4s_sheet_table.
+                ENDLOOP.
+              ENDLOOP.
+            ENDLOOP.
+          ENDLOOP.
+        ENDLOOP.
+
+        service_sheet_list = me->dao_4service_sheet->struct_to_objects( t4s_sheet_table ).
+        me->dao_4service_sheet->save_many( service_sheet_list ).
+
         "Loop em appoint_apvd_by_providers
-            "criar o registro da nova tabela e setar os valores
+        "criar o registro da nova tabela e setar os valores
         "enloop
         "
 

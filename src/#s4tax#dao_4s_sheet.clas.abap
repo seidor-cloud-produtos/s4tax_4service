@@ -70,4 +70,16 @@ CLASS /s4tax/dao_4s_sheet IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
+  METHOD /s4tax/idao_4service_sheet~save_many.
+    DATA: service_sheet_table TYPE /s4tax/t4s_sheet_t.
+
+    IF service_sheet_list IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    service_sheet_table = me->/s4tax/idao_4service_sheet~objects_to_struct( service_sheet_list ).
+
+    MODIFY /s4tax/t4s_sheet FROM TABLE service_sheet_table.
+  ENDMETHOD.
+
 ENDCLASS.
