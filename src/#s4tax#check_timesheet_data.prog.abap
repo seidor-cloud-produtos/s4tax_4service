@@ -129,11 +129,6 @@ CLASS main_process IMPLEMENTATION.
         service_sheet_list = me->dao_4service_sheet->struct_to_objects( t4s_sheet_table ).
         me->dao_4service_sheet->save_many( service_sheet_list ).
 
-        "Loop em appoint_apvd_by_providers
-        "criar o registro da nova tabela e setar os valores
-        "enloop
-        "
-
         "buscar fornecedores
         "Verificar se está bloqueado? sperm <> 'X'
         "buscar empresas/filiais
