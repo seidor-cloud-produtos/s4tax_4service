@@ -40,6 +40,7 @@ CLASS /s4tax/api_4service IMPLEMENTATION.
         session     = me->session
         http_path   = api_paths-list_approved_appointments
         http_method = /s4tax/http_operation=>http_methods-get
+        query_params = query_params
         request_dto = request_dto
       CHANGING
         output      = result
