@@ -25,7 +25,7 @@ CLASS /s4tax/api_4service IMPLEMENTATION.
           request_dto      TYPE REF TO /s4tax/request,
           context_id       TYPE /s4tax/trequest-context_id.
 
-    request_dto = create_custom_request_dto( context    = /s4tax/constants=>context-nfe
+    request_dto = create_custom_request_dto( context    = /s4tax/constants=>context-service
                                              context_id = context_id ).
 
     create_request_obj(
@@ -54,7 +54,7 @@ CLASS /s4tax/api_4service IMPLEMENTATION.
           request_dto      TYPE REF TO /s4tax/request,
           context_id       TYPE /s4tax/trequest-context_id.
 
-    request_dto = create_custom_request_dto( context    = /s4tax/constants=>context-nfe
+    request_dto = create_custom_request_dto( context    = /s4tax/constants=>context-service
                                              context_id = context_id ).
 
     create_request_obj(
