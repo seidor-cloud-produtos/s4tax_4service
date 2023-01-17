@@ -6,13 +6,20 @@ CLASS /s4tax/api_4service DEFINITION
   PUBLIC SECTION.
     INTERFACES /s4tax/iapi_4service.
 
+    CLASS-METHODS:
+      get_instance IMPORTING api_auth      TYPE REF TO /s4tax/iapi_auth OPTIONAL
+                   RETURNING VALUE(result) TYPE REF TO /s4tax/iapi_4service
+                   RAISING   /s4tax/cx_http /s4tax/cx_auth.
+
   PROTECTED SECTION.
+
+    CLASS-DATA: instance TYPE REF TO /s4tax/iapi_4service.
 
   PRIVATE SECTION.
     CONSTANTS:
       BEGIN OF api_paths,
-        list_approved_appointments     TYPE string VALUE 'https://hom.api.orbitspot.com/officeservice/api/time-sheet-confirm-appointments/providers-approved-period-income',
-        list_worked_hours_by_providers TYPE string VALUE 'https://hom.api.orbitspot.com/officeservice/api/time-sheet-confirm-appointments',
+        list_approved_appointments     TYPE string VALUE '/officeservice/api/time-sheet-confirm-appointments/providers-approved-period-income',
+        list_worked_hours_by_providers TYPE string VALUE '/officeservice/api/time-sheet-confirm-appointments',
       END OF api_paths.
 ENDCLASS.
 
@@ -75,6 +82,25 @@ CLASS /s4tax/api_4service IMPLEMENTATION.
                             obj  = json_config ).
 
     last_request->send(  ).
+  ENDMETHOD.
+
+  METHOD get_instance.
+    DATA: session           TYPE REF TO /s4tax/session,
+          api_authorization TYPE REF TO /s4tax/iapi_auth.
+
+    IF instance IS BOUND.
+      result = instance.
+      RETURN.
+    ENDIF.
+
+    api_authorization = api_auth.
+    IF api_authorization IS NOT BOUND.
+      api_authorization      = /s4tax/api_auth=>default_instance( ).
+    ENDIF.
+
+    session       = api_authorization->login( /s4tax/defaults=>customer_profile_name ).
+    CREATE OBJECT instance TYPE /s4tax/api_4service EXPORTING session = session.
+    result = instance.
   ENDMETHOD.
 
 ENDCLASS.

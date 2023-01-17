@@ -12,6 +12,7 @@ CLASS main_process DEFINITION CREATE PUBLIC.
     INTERFACES: /s4tax/ijob_processor.
 
     METHODS: constructor IMPORTING reporter          TYPE REF TO /s4tax/ireporter OPTIONAL
+                                   api_4service      TYPE REF TO /s4tax/iapi_4service OPTIONAL
                                    dao_pack_4service TYPE REF TO /s4tax/idao_pack_4service OPTIONAL.
 
   PROTECTED SECTION.
@@ -48,13 +49,16 @@ CLASS main_process IMPLEMENTATION.
     defaults      = /s4tax/defaults=>get_default_instance( ).
     api_auth      = /s4tax/api_auth=>default_instance( ).
 
-    TRY.
-        session       = api_auth->login( /s4tax/defaults=>customer_profile_name ).
-        CREATE OBJECT api_4service TYPE /s4tax/api_4service EXPORTING session = session.
-      CATCH /s4tax/cx_http /s4tax/cx_auth.
-    ENDTRY.
+    me->api_4service = api_4service.
+    IF me->api_4service IS INITIAL.
+      TRY.
+          session       = api_auth->login( /s4tax/defaults=>customer_profile_name ).
+          CREATE OBJECT me->api_4service TYPE /s4tax/api_4service EXPORTING session = session.
+        CATCH /s4tax/cx_http /s4tax/cx_auth.
+      ENDTRY.
+    ENDIF.
 
-    me->dao_4service_sheet = dao_4service_sheet.
+    me->dao_pack_4service = dao_pack_4service.
 
     IF me->dao_pack_4service IS INITIAL.
       me->dao_pack_4service = /s4tax/dao_pack_4service=>default_instance(  ).
