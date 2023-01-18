@@ -89,8 +89,9 @@ CLASS main_process IMPLEMENTATION.
 
     DATA: appoint_data_list   TYPE /s4tax/s_apprvd_appointments_t,
           appoint_data        TYPE /s4tax/s_apprvd_appointments,
-          t4s_sheet           TYPE /s4tax/t4s_sheet,
-          t4s_sheet_table     TYPE /s4tax/t4s_sheet_t,
+          sheet               TYPE /s4tax/t4s_sheet,
+          sheet_table         TYPE /s4tax/t4s_sheet_t,
+          service_sheet       TYPE REF TO /s4tax/4s_sheet,
           service_sheet_list  TYPE /s4tax/4s_sheet_t,
           branch              TYPE /s4tax/s_appointments_branches,
           provider            TYPE /s4tax/s_appoint_providers,
@@ -103,30 +104,30 @@ CLASS main_process IMPLEMENTATION.
         appoint_data_list = me->appoint_apvd_by_providers-data.
 
         LOOP AT appoint_data_list INTO appoint_data.
-          t4s_sheet-start_period = appoint_data-period-start_period.
-          t4s_sheet-end_period   = appoint_data-period-end_period.
+          sheet-start_period = appoint_data-period-start_period.
+          sheet-end_period   = appoint_data-period-end_period.
 
           LOOP AT appoint_data-branches INTO branch.
-            t4s_sheet-branch_id = branch-branch_id.
+            sheet-branch_id = branch-branch_id.
 
             LOOP AT branch-providers INTO provider.
-              t4s_sheet-provider_fiscal_id_number = provider-provider_fiscal_id_number.
+              sheet-provider_fiscal_id_number = provider-provider_fiscal_id_number.
 
               LOOP AT provider-employees INTO employee.
-                t4s_sheet-employment_erp_code = employee-employment_erp_code.
+                sheet-employment_erp_code = employee-employment_erp_code.
 
                 LOOP AT employee-confirm_appointments INTO confirm_appointment.
-                  t4s_sheet-appointment_id = confirm_appointment-id.
-                  t4s_sheet-approved_value = confirm_appointment-approved_period_income.
+                  sheet-appointment_id = confirm_appointment-id.
+                  sheet-approved_value = confirm_appointment-approved_period_income.
 
-                  APPEND t4s_sheet TO t4s_sheet_table.
+                  CREATE OBJECT service_sheet EXPORTING iw_struct = sheet.
+                  APPEND service_sheet TO service_sheet_list.
                 ENDLOOP.
               ENDLOOP.
             ENDLOOP.
           ENDLOOP.
         ENDLOOP.
 
-        service_sheet_list = me->dao_4service_sheet->struct_to_objects( t4s_sheet_table ).
         me->dao_4service_sheet->save_many( service_sheet_list ).
 
         "buscar fornecedores
