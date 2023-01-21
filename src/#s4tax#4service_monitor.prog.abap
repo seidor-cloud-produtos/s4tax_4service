@@ -325,8 +325,15 @@ CLASS main IMPLEMENTATION.
       alv_line-credat = service_sheet->get_credat(  ).
 
       CREATE OBJECT date.
-      date->create_by_timestamp( alv_line-credat ).
-      alv_line-credat = date->to_usual_date_format(  ).
+      IF alv_line-credat IS NOT INITIAL.
+        date->create_by_timestamp( alv_line-credat ).
+        alv_line-credat = date->to_usual_date_format(  ).
+      ENDIF.
+
+      IF alv_line-update_at IS NOT INITIAL.
+        date->create_by_timestamp( alv_line-update_at ).
+        alv_line-update_at = date->to_usual_date_format(  ).
+      ENDIF.
 
       CASE service_sheet->struct-status.
         WHEN /s4tax/4service_constants=>timesheet_status-in_process.
