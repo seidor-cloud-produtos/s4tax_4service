@@ -44,6 +44,7 @@ CLASS main_process DEFINITION CREATE PUBLIC.
                                    dao_pack_4service TYPE REF TO /s4tax/idao_pack_4service OPTIONAL.
 
   PROTECTED SECTION.
+    DATA: reporter                  TYPE REF TO /s4tax/ireporter.
 
     METHODS: call_bapi_po_change IMPORTING purchaseorder TYPE bapimepoheader-po_number
                                            poitem        TYPE ty_poitem OPTIONAL
@@ -56,11 +57,12 @@ CLASS main_process DEFINITION CREATE PUBLIC.
                                           goodsmvt_item_table TYPE ty_bapi2017_gm_item_create
                                 RETURNING VALUE(result)       TYPE ty_bapiret2,
 
-      generate_migo IMPORTING pedido_item TYPE y_pedido_poitem.
+      generate_migo IMPORTING pedido_item TYPE y_pedido_poitem,
+      get_reporter IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
+                   RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter.
 
   PRIVATE SECTION.
-    DATA: reporter                  TYPE REF TO /s4tax/ireporter,
-          api_4service              TYPE REF TO /s4tax/iapi_4service,
+    DATA: api_4service              TYPE REF TO /s4tax/iapi_4service,
           appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
           dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
           dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner,
@@ -160,7 +162,8 @@ CLASS main_process IMPLEMENTATION.
           start_period        TYPE sy-datum,
           end_period          TYPE sy-datum,
           msg                 TYPE string,
-          return              TYPE bapiret2.
+          return              TYPE bapiret2,
+          reporter            TYPE REF TO /s4tax/ireporter.
 
     FIELD-SYMBOLS:
       <pedido_tab> TYPE ty_pedido_poitem,
@@ -235,15 +238,27 @@ CLASS main_process IMPLEMENTATION.
         LOOP AT service_sheet_list INTO service_sheet.
           READ TABLE partner_table WITH KEY fiscal_id = service_sheet->struct-provider_fiscal_id_number INTO s_partner.
           IF sy-subrc <> 0 .
-            CONTINUE.
-            "TO-DO logar
+            reporter = get_reporter( service_sheet ).
+            MESSAGE s003(/s4tax/4service) WITH service_sheet->struct-update_at
+                                      service_sheet->struct-provider_fiscal_id_number
+                                      service_sheet->struct-appointment_id INTO msg.
+            reporter->error( msg ).
+            service_sheet->set_reporter( reporter ).
+            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+            CONTINUE. "to do logar
           ENDIF.
 
           READ TABLE <pedido_tab> ASSIGNING <wa_pedido> WITH KEY lifnr = s_partner-parid
                                                                  kostl = service_sheet->struct-employment_erp_code.
           IF sy-subrc <> 0.
-            CONTINUE.
-            "TO-DO logar
+            reporter = get_reporter( service_sheet ).
+            MESSAGE s003(/s4tax/4service) WITH service_sheet->struct-update_at
+                                      service_sheet->struct-provider_fiscal_id_number
+                                      service_sheet->struct-appointment_id INTO msg.
+            reporter->error( msg ).
+            service_sheet->set_reporter( reporter ).
+            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+            CONTINUE. "to do logar
           ENDIF.
 
           poitem-po_item = <wa_pedido>-ebelp.
@@ -272,7 +287,18 @@ CLASS main_process IMPLEMENTATION.
 
           READ TABLE <sheet_tab> ASSIGNING <sheet> WITH KEY provider_fiscal_id_number = s_partner-fiscal_id
                                                             employment_erp_code = pedido_item-kostl.
+
+          CREATE OBJECT service_sheet EXPORTING iw_struct = <sheet>.
+
           IF sy-subrc <> 0.
+            reporter = get_reporter( service_sheet ).
+            MESSAGE s003(/s4tax/4service) WITH <sheet>-update_at
+                                               <sheet>-provider_fiscal_id_number
+                                               <sheet>-appointment_id INTO msg.
+            reporter->error( msg ).
+            service_sheet->set_reporter( reporter ).
+            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+            <sheet> = service_sheet->struct.
             CONTINUE.
           ENDIF.
 
@@ -286,6 +312,9 @@ CLASS main_process IMPLEMENTATION.
             call_bapi_transaction_commit( ).
             generate_migo( pedido_item ).
             <sheet>-status = /s4tax/4service_constants=>timesheet_status-finished.
+            reporter = get_reporter( service_sheet ).
+            service_sheet->set_reporter( reporter ).
+            <sheet> = service_sheet->struct.
             CONTINUE.
           ENDIF.
 
@@ -293,11 +322,11 @@ CLASS main_process IMPLEMENTATION.
           call_bapi_transaction_rollback( ).
           DELETE return_table WHERE type <> 'E'.
           MESSAGE e000(/s4tax/4service) WITH pedido_item-ebeln INTO msg.
-          reporter->error( msg ).
+          me->reporter->error( msg ).
 
           LOOP AT return_table INTO return.
             CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
-            reporter->error( msg ).
+            me->reporter->error( msg ).
           ENDLOOP.
         ENDLOOP.
 
@@ -393,6 +422,25 @@ CLASS main_process IMPLEMENTATION.
       TABLES
         goodsmvt_item   = goodsmvt_item_table
         return          = result.
+  ENDMETHOD.
+
+
+  METHOD get_reporter.
+    DATA: msg        TYPE string.
+
+    result = service_sheet->get_reporter( ).
+
+    IF result IS BOUND.
+      RETURN.
+    ENDIF.
+
+    result = /s4tax/reporter_factory=>create( object    =  /s4tax/reporter_factory=>object-s4tax
+                                              subobject = /s4tax/reporter_factory=>subobject-four_service  ).
+
+    MESSAGE s002(/s4tax/4service) WITH service_sheet->struct-update_at
+                                       service_sheet->struct-provider_fiscal_id_number
+                                       service_sheet->struct-appointment_id INTO msg.
+    result->info( msg ).
   ENDMETHOD.
 
 ENDCLASS.
