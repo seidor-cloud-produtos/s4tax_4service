@@ -27,7 +27,19 @@ CLASS /s4tax/model_t4s_sheet DEFINITION
       set_approved_value IMPORTING iv_approved_value TYPE /s4tax/t4s_sheet-approved_value,
 
       get_status RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-status,
-      set_status IMPORTING iv_status TYPE /s4tax/t4s_sheet-status.
+      set_status IMPORTING iv_status TYPE /s4tax/t4s_sheet-status,
+
+      get_log_number RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-log_number,
+      set_log_number IMPORTING iv_log_number TYPE /s4tax/t4s_sheet-log_number,
+
+      get_update_at RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-update_at,
+      set_update_at IMPORTING iv_update_at TYPE /s4tax/t4s_sheet-update_at,
+
+      get_update_name RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-update_name,
+      set_update_name IMPORTING iv_update_name TYPE /s4tax/t4s_sheet-update_name,
+
+      get_credat RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-credat,
+      set_credat IMPORTING iv_credat TYPE /s4tax/t4s_sheet-credat.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -114,4 +126,36 @@ CLASS /s4tax/model_t4s_sheet IMPLEMENTATION.
   METHOD set_status.
     me->struct-status = iv_status.
   ENDMETHOD.
+  METHOD get_log_number.
+    result = me->struct-log_number.
+  ENDMETHOD.
+
+  METHOD get_update_at.
+    result = me->struct-update_at.
+  ENDMETHOD.
+
+  METHOD get_update_name.
+    result = me->struct-update_name.
+  ENDMETHOD.
+
+  METHOD set_log_number.
+    me->struct-log_number = iv_log_number.
+  ENDMETHOD.
+
+  METHOD set_update_at.
+    me->struct-update_at = iv_update_at.
+  ENDMETHOD.
+
+  METHOD set_update_name.
+    me->struct-update_name = iv_update_name.
+  ENDMETHOD.
+
+  METHOD get_credat.
+    result = me->struct-credat.
+  ENDMETHOD.
+
+  METHOD set_credat.
+    me->struct-credat = iv_credat.
+  ENDMETHOD.
+
 ENDCLASS.

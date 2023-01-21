@@ -5,9 +5,19 @@ CLASS /s4tax/4s_sheet DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-    METHODS: constructor IMPORTING iw_struct TYPE /s4tax/t4s_sheet OPTIONAL.
+    DATA:
+      reporter TYPE REF TO /s4tax/ireporter READ-ONLY.
+
+    METHODS: constructor IMPORTING iw_struct TYPE /s4tax/t4s_sheet OPTIONAL,
+
+      get_reporter RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter,
+      set_reporter IMPORTING reporter TYPE REF TO /s4tax/ireporter.
 
   PROTECTED SECTION.
+    METHODS:  open_by_id IMPORTING appointment_id TYPE sysuuid_22
+                         RETURNING VALUE(result)  TYPE REF TO /s4tax/ireporter,
+      create_reporter RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter.
+
   PRIVATE SECTION.
 ENDCLASS.
 
@@ -30,6 +40,53 @@ CLASS /s4tax/4s_sheet IMPLEMENTATION.
     me->set_appointment_id( iw_struct-appointment_id ).
     me->set_approved_value( iw_struct-approved_value ).
     me->set_status( iw_struct-status ).
+    me->set_update_at( iw_struct-update_at ).
+    me->set_update_name( iw_struct-update_name ).
+    me->set_credat( iw_struct-credat ).
+    me->set_log_number( iw_struct-log_number ).
+  ENDMETHOD.
+
+  METHOD open_by_id.
+    result = /s4tax/reporter_factory=>open_by_id( object = /s4tax/reporter_factory=>object-s4tax
+                                                  subobject = /s4tax/reporter_factory=>subobject-nfse
+                                                  log_id = appointment_id ).
+  ENDMETHOD.
+
+  METHOD get_reporter.
+    DATA: appointment_id TYPE sysuuid_22,
+          msg            TYPE string.
+
+    IF me->reporter IS BOUND.
+      result = me->reporter.
+      RETURN.
+    ENDIF.
+
+    IF me->struct-appointment_id IS NOT INITIAL.
+      appointment_id = me->struct-appointment_id.
+      me->reporter = open_by_id( appointment_id ).
+      result = me->reporter.
+      RETURN.
+    ENDIF.
+
+    me->reporter = create_reporter( ).
+
+    IF me->reporter IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    MESSAGE s002(/s4tax/4service) WITH me->struct-update_at me->struct-provider_fiscal_id_number me->struct-appointment_id INTO msg.
+    me->reporter->info( msg ).
+    me->set_log_number( me->reporter->db_number ).
+    result = me->reporter.
+  ENDMETHOD.
+
+  METHOD set_reporter.
+    me->reporter = reporter.
+  ENDMETHOD.
+
+  METHOD create_reporter.
+    result = /s4tax/reporter_factory=>create( object =  /s4tax/reporter_factory=>object-s4tax
+                                                          subobject = /s4tax/reporter_factory=>subobject-four_service  ).
   ENDMETHOD.
 
 ENDCLASS.

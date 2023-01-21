@@ -285,7 +285,7 @@ CLASS main_process IMPLEMENTATION.
           IF sy-subrc <> 0.
             call_bapi_transaction_commit( ).
             generate_migo( pedido_item ).
-            <sheet>-status = '01'. "todo - criar a classe de constantes
+            <sheet>-status = /s4tax/4service_constants=>timesheet_status-finished.
             CONTINUE.
           ENDIF.
 
