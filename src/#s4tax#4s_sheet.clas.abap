@@ -8,14 +8,16 @@ CLASS /s4tax/4s_sheet DEFINITION
     DATA:
       reporter TYPE REF TO /s4tax/ireporter READ-ONLY.
 
-    METHODS: constructor IMPORTING iw_struct TYPE /s4tax/t4s_sheet OPTIONAL,
+    METHODS:
+      constructor IMPORTING iw_struct TYPE /s4tax/t4s_sheet OPTIONAL,
 
       get_reporter RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter,
       set_reporter IMPORTING reporter TYPE REF TO /s4tax/ireporter.
 
   PROTECTED SECTION.
-    METHODS:  open_by_id IMPORTING appointment_id TYPE sysuuid_22
-                         RETURNING VALUE(result)  TYPE REF TO /s4tax/ireporter,
+    METHODS:
+      open_by_id IMPORTING log_number    TYPE sysuuid_22
+                 RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter,
       create_reporter RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter.
 
   PRIVATE SECTION.
@@ -48,22 +50,22 @@ CLASS /s4tax/4s_sheet IMPLEMENTATION.
 
   METHOD open_by_id.
     result = /s4tax/reporter_factory=>open_by_id( object = /s4tax/reporter_factory=>object-s4tax
-                                                  subobject = /s4tax/reporter_factory=>subobject-nfse
-                                                  log_id = appointment_id ).
+                                                  subobject = /s4tax/reporter_factory=>subobject-four_service
+                                                  log_id = log_number ).
   ENDMETHOD.
 
   METHOD get_reporter.
-    DATA: appointment_id TYPE sysuuid_22,
-          msg            TYPE string.
+    DATA: log_number TYPE sysuuid_22,
+          msg        TYPE string.
 
     IF me->reporter IS BOUND.
       result = me->reporter.
       RETURN.
     ENDIF.
 
-    IF me->struct-appointment_id IS NOT INITIAL.
-      appointment_id = me->struct-appointment_id.
-      me->reporter = open_by_id( appointment_id ).
+    IF me->struct-log_number IS NOT INITIAL.
+      log_number = me->struct-log_number.
+      me->reporter = open_by_id( log_number ).
       result = me->reporter.
       RETURN.
     ENDIF.
