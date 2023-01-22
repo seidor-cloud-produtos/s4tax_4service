@@ -81,20 +81,16 @@ CLASS main_process DEFINITION CREATE PUBLIC.
       api_4service              TYPE REF TO /s4tax/iapi_4service,
       appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
       dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
-      dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner,
-      dao_4service_sheet        TYPE REF TO /s4tax/idao_4service_sheet,
-      dao_partner               TYPE REF TO /s4tax/idao_partner.
+      dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner.
 
 ENDCLASS.
 
 CLASS main_process IMPLEMENTATION.
 
   METHOD constructor.
-    DATA: lx_root  TYPE REF TO cx_root,
-          msg      TYPE string,
-          api_auth TYPE REF TO /s4tax/iapi_auth,
-          defaults TYPE REF TO /s4tax/defaults,
-          session  TYPE REF TO /s4tax/session.
+    DATA: lx_root TYPE REF TO cx_root,
+          msg     TYPE string.
+
 
     TRY.
         me->reporter = reporter.
@@ -102,36 +98,27 @@ CLASS main_process IMPLEMENTATION.
           me->reporter = /s4tax/reporter_factory=>create( object    = /s4tax/reporter_factory=>object-s4tax
                                                           subobject = /s4tax/reporter_factory=>subobject-task ).
         ENDIF.
+
+        me->api_4service = api_4service.
+        IF me->api_4service IS INITIAL.
+          me->api_4service = /s4tax/api_4service=>get_instance(  ).
+        ENDIF.
+
+        me->dao_pack_4service = dao_pack_4service.
+        IF me->dao_pack_4service IS INITIAL.
+          me->dao_pack_4service = /s4tax/dao_pack_4service=>default_instance(  ).
+        ENDIF.
+
+        me->dao_pack_partner = dao_pack_partner.
+        IF me->dao_pack_partner IS INITIAL.
+          me->dao_pack_partner = /s4tax/dao_pack_partner=>default_instance(  ).
+        ENDIF.
+
       CATCH cx_root INTO lx_root.
         msg = lx_root->get_text( ).
         me->reporter->error( msg ).
+
     ENDTRY.
-
-    defaults      = /s4tax/defaults=>get_default_instance( ).
-    api_auth      = /s4tax/api_auth=>default_instance( ).
-
-    me->api_4service = api_4service.
-    IF me->api_4service IS INITIAL.
-      TRY.
-          session       = api_auth->login( /s4tax/defaults=>customer_profile_name ).
-          CREATE OBJECT me->api_4service TYPE /s4tax/api_4service EXPORTING session = session.
-        CATCH /s4tax/cx_http /s4tax/cx_auth.
-      ENDTRY.
-    ENDIF.
-
-    me->dao_pack_4service = dao_pack_4service.
-    IF me->dao_pack_4service IS INITIAL.
-      me->dao_pack_4service = /s4tax/dao_pack_4service=>default_instance(  ).
-    ENDIF.
-
-    me->dao_4service_sheet = me->dao_pack_4service->four_service_sheet(  ).
-
-    me->dao_pack_partner = dao_pack_partner.
-    IF me->dao_pack_partner IS INITIAL.
-      me->dao_pack_partner = /s4tax/dao_pack_partner=>default_instance(  ).
-    ENDIF.
-
-    me->dao_partner = me->dao_pack_partner->partner(  ).
   ENDMETHOD.
 
   METHOD /s4tax/ijob_processor~post_process.
@@ -177,7 +164,13 @@ CLASS main_process IMPLEMENTATION.
           msg                 TYPE string,
           service_reporter    TYPE REF TO /s4tax/ireporter,
           po_change_success   TYPE abap_bool,
-          is_generated        TYPE abap_bool.
+          is_generated        TYPE abap_bool,
+          dao_4service_sheet  TYPE REF TO /s4tax/idao_4service_sheet,
+          dao_partner         TYPE REF TO /s4tax/idao_partner,
+          query_params        TYPE /s4tax/s_query_params_t,
+          param               TYPE  /s4tax/s_query_params,
+          initial_date        TYPE REF TO /s4tax/date,
+          final_date          TYPE REF TO /s4tax/date.
 
     FIELD-SYMBOLS:
       <pedido_tab> TYPE ty_pedido_poitem,
@@ -185,7 +178,18 @@ CLASS main_process IMPLEMENTATION.
 
     CREATE OBJECT range_utils.
     TRY.
-        me->appoint_apvd_by_providers = api_4service->list_appoint_apvd_by_providers( ).
+
+        CREATE OBJECT initial_date EXPORTING date = '01012023'.
+        param-name = 'initial_date_commit'.
+        param-value = initial_date->to_iso_8601(  ). "to-do deixar dinâmico - definir regra com a mari
+        APPEND param TO query_params.
+
+        final_date = initial_date->add( days = 30 ).
+        param-name = 'final_date_commit'.
+        param-value = final_date->to_iso_8601(  ). "to-do deixar dinâmico
+        APPEND param TO query_params.
+
+        me->appoint_apvd_by_providers = api_4service->list_appoint_apvd_by_providers( query_params = query_params ).
 
         appoint_data_list = me->appoint_apvd_by_providers-data.
 
@@ -218,13 +222,15 @@ CLASS main_process IMPLEMENTATION.
           ENDLOOP.
         ENDLOOP.
 
-        me->dao_4service_sheet->save_many( service_sheet_list ).
+        dao_4service_sheet = me->dao_pack_4service->four_service_sheet( ).
+        dao_4service_sheet->save_many( service_sheet_list ).
 
-        partner_list = me->dao_partner->get_many( fiscal_range ).
-        partner_table = me->dao_partner->object_to_struct( partner_list ).
+        dao_partner = me->dao_pack_partner->partner( ).
+        partner_list = dao_partner->get_many( fiscal_range ).
+        partner_table = dao_partner->object_to_struct( partner_list ).
 
-        start_period = appoint_data-period-start_period.
-        end_period = appoint_data-period-end_period.
+        start_period = initial_date->date.
+        end_period = final_date->date.
 
         SELECT k~ebeln p~ebelp k~bukrs p~werks n~kostl k~lifnr
           INTO TABLE it_pedido
@@ -329,7 +335,7 @@ CLASS main_process IMPLEMENTATION.
 
         ENDLOOP.
 
-        me->dao_4service_sheet->save_many( service_sheet_list ).
+        dao_4service_sheet->save_many( service_sheet_list ).
 
       CATCH /s4tax/cx_http.
     ENDTRY.
