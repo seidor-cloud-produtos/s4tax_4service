@@ -5,10 +5,8 @@
 *&---------------------------------------------------------------------*
 REPORT /s4tax/check_timesheet_data.
 
-TYPES: ty_poitem                  TYPE TABLE OF bapimepoitem WITH NON-UNIQUE DEFAULT KEY,
-       ty_poitemx                 TYPE TABLE OF bapimepoitemx WITH NON-UNIQUE DEFAULT KEY,
-       ty_bapiret2                TYPE TABLE OF bapiret2 WITH NON-UNIQUE DEFAULT KEY,
-       ty_bapi2017_gm_item_create TYPE TABLE OF bapi2017_gm_item_create WITH NON-UNIQUE DEFAULT KEY,
+TYPES: ty_poitem  TYPE TABLE OF bapimepoitem WITH NON-UNIQUE DEFAULT KEY,
+       ty_poitemx TYPE TABLE OF bapimepoitemx WITH NON-UNIQUE DEFAULT KEY,
 
        BEGIN OF y_pedido,
          ebeln TYPE ekko-ebeln,
@@ -38,36 +36,54 @@ CLASS main_process DEFINITION CREATE PUBLIC.
 
     INTERFACES: /s4tax/ijob_processor.
 
-    METHODS: constructor IMPORTING reporter          TYPE REF TO /s4tax/ireporter OPTIONAL
-                                   api_4service      TYPE REF TO /s4tax/iapi_4service OPTIONAL
-                                   dao_pack_partner  TYPE REF TO /s4tax/idao_pack_partner OPTIONAL
-                                   dao_pack_4service TYPE REF TO /s4tax/idao_pack_4service OPTIONAL.
+    METHODS:
+      constructor IMPORTING reporter          TYPE REF TO /s4tax/ireporter OPTIONAL
+                            api_4service      TYPE REF TO /s4tax/iapi_4service OPTIONAL
+                            dao_pack_partner  TYPE REF TO /s4tax/idao_pack_partner OPTIONAL
+                            dao_pack_4service TYPE REF TO /s4tax/idao_pack_4service OPTIONAL.
 
   PROTECTED SECTION.
-    DATA: reporter                  TYPE REF TO /s4tax/ireporter.
 
-    METHODS: call_bapi_po_change IMPORTING purchaseorder TYPE bapimepoheader-po_number
-                                           poitem        TYPE ty_poitem OPTIONAL
-                                           poitemx       TYPE ty_poitemx OPTIONAL
-                                 RETURNING VALUE(result) TYPE ty_bapiret2,
+    DATA:
+      reporter                  TYPE REF TO /s4tax/ireporter.
+
+    METHODS:
+      change_purchase_order IMPORTING pedido_po_item TYPE y_pedido_poitem
+                                      service_sheet  TYPE REF TO /s4tax/4s_sheet
+                            RETURNING VALUE(result)  TYPE abap_bool,
+
       call_bapi_transaction_commit,
+
       call_bapi_transaction_rollback,
+
       call_bapi_goodsmvt_create IMPORTING goodsmvt_header     TYPE bapi2017_gm_head_01
                                           goodsmvt_code       TYPE bapi2017_gm_code
-                                          goodsmvt_item_table TYPE ty_bapi2017_gm_item_create
-                                RETURNING VALUE(result)       TYPE ty_bapiret2,
+                                CHANGING  result              TYPE bapiret2_tab
+                                          goodsmvt_item_table TYPE tab_bapi_goodsmvt_item,
 
-      generate_migo IMPORTING pedido_item TYPE y_pedido_poitem,
+      generate_migo IMPORTING pedido_item   TYPE y_pedido_poitem
+                              service_sheet TYPE REF TO /s4tax/4s_sheet
+                    RETURNING VALUE(result) TYPE abap_bool,
+
       get_reporter IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
-                   RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter.
+                   RETURNING VALUE(result) TYPE REF TO /s4tax/ireporter,
+
+      call_bapi_po_change IMPORTING pedido_po_item TYPE y_pedido_poitem
+                                    poheader       TYPE bapimepoheader
+                                    poheaderx      TYPE bapimepoheaderx
+                          RETURNING VALUE(result)  TYPE bapiret2_tab,
+
+      log_bapi_return IMPORTING bapi_return TYPE bapiret2_tab
+                                reporter    TYPE REF TO /s4tax/ireporter.
 
   PRIVATE SECTION.
-    DATA: api_4service              TYPE REF TO /s4tax/iapi_4service,
-          appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
-          dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
-          dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner,
-          dao_4service_sheet        TYPE REF TO /s4tax/idao_4service_sheet,
-          dao_partner               TYPE REF TO /s4tax/idao_partner.
+    DATA:
+      api_4service              TYPE REF TO /s4tax/iapi_4service,
+      appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
+      dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
+      dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner,
+      dao_4service_sheet        TYPE REF TO /s4tax/idao_4service_sheet,
+      dao_partner               TYPE REF TO /s4tax/idao_partner.
 
 ENDCLASS.
 
@@ -153,16 +169,15 @@ CLASS main_process IMPLEMENTATION.
           s_partner           TYPE /s4tax/tpartner,
           it_pedido           TYPE ty_pedido,
           it_pedido_poitem    TYPE ty_pedido_poitem,
-          pedido              TYPE y_pedido,
-          return_table        TYPE STANDARD TABLE OF bapiret2,
           poitem              TYPE bapimepoitem,
           poitemx             TYPE bapimepoitemx,
           pedido_item         TYPE y_pedido_poitem,
           start_period        TYPE sy-datum,
           end_period          TYPE sy-datum,
           msg                 TYPE string,
-          return              TYPE bapiret2,
-          service_reporter    TYPE REF TO /s4tax/ireporter.
+          service_reporter    TYPE REF TO /s4tax/ireporter,
+          po_change_success   TYPE abap_bool,
+          is_generated        TYPE abap_bool.
 
     FIELD-SYMBOLS:
       <pedido_tab> TYPE ty_pedido_poitem,
@@ -258,6 +273,8 @@ CLASS main_process IMPLEMENTATION.
             service_reporter->error( msg ).
             CONTINUE. "to do logar
           ENDIF.
+          service_sheet->set_order_number( <wa_pedido>-ebeln ).
+          service_sheet->set_order_item( <wa_pedido>-ebelp ).
 
           poitem-po_item = <wa_pedido>-ebelp.
           poitemx-po_item = <wa_pedido>-ebelp.
@@ -296,30 +313,20 @@ CLASS main_process IMPLEMENTATION.
             CONTINUE.
           ENDIF.
 
-          return_table = me->call_bapi_po_change( purchaseorder = pedido-ebeln
-                                                  poitem        = pedido_item-poitem
-                                                  poitemx       = pedido_item-poitemx ).
-
-          READ TABLE return_table TRANSPORTING NO FIELDS WITH KEY type = 'E'.
-
-          IF sy-subrc <> 0.
-            call_bapi_transaction_commit( ).
-            generate_migo( pedido_item ).
-            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-finished ).
+          po_change_success = me->change_purchase_order( pedido_po_item = pedido_item service_sheet = service_sheet ).
+          IF po_change_success = abap_false.
+            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
             CONTINUE.
           ENDIF.
 
-          "TO DO logar
-          call_bapi_transaction_rollback( ).
+          is_generated = me->generate_migo( pedido_item = pedido_item service_sheet = service_sheet ).
+          IF is_generated = abap_false.
+            service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+            CONTINUE.
+          ENDIF.
 
-          DELETE return_table WHERE type <> 'E'.
-          MESSAGE e000(/s4tax/4service) WITH pedido_item-ebeln INTO msg.
-          me->reporter->error( msg ).
+          service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-finished ).
 
-          LOOP AT return_table INTO return.
-            CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
-            me->reporter->error( msg ).
-          ENDLOOP.
         ENDLOOP.
 
         me->dao_4service_sheet->save_many( service_sheet_list ).
@@ -328,22 +335,32 @@ CLASS main_process IMPLEMENTATION.
     ENDTRY.
   ENDMETHOD.
 
-  METHOD call_bapi_po_change.
-    DATA: poheader  TYPE bapimepoheader,
-          poheaderx TYPE bapimepoheaderx.
+  METHOD change_purchase_order.
+    DATA: poheader       TYPE bapimepoheader,
+          poheaderx      TYPE bapimepoheaderx,
+          return_table   TYPE STANDARD TABLE OF bapiret2,
+          msg            TYPE string,
+          reporter_sheet TYPE REF TO /s4tax/ireporter.
 
-    poheader-po_number = purchaseorder.
+    reporter_sheet = service_sheet->get_reporter( ).
+
+    poheader-po_number = pedido_po_item-ebeln.
     poheaderx-po_number = 'X'.
 
-    CALL FUNCTION 'BAPI_PO_CHANGE'
-      EXPORTING
-        purchaseorder = purchaseorder
-        poheader      = poheader
-        poheaderx     = poheaderx
-      TABLES
-        return        = result
-        poitem        = poitem
-        poitemx       = poitemx.
+    return_table = call_bapi_po_change( pedido_po_item = pedido_po_item poheader = poheader poheaderx = poheaderx ).
+
+    READ TABLE return_table TRANSPORTING NO FIELDS WITH KEY type = 'E'.
+    IF sy-subrc <> 0.
+      result = abap_true.
+      call_bapi_transaction_commit( ).
+    ELSE.
+      MESSAGE e004(/s4tax/4service) WITH pedido_po_item-ebeln INTO msg.
+      reporter_sheet->error( msg ).
+      call_bapi_transaction_rollback( ).
+    ENDIF.
+
+    log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
+
   ENDMETHOD.
 
 
@@ -362,14 +379,17 @@ CLASS main_process IMPLEMENTATION.
   METHOD generate_migo.
     DATA: header            TYPE bapi2017_gm_head_01,
           gm_code           TYPE bapi2017_gm_code,
-          item_create_table TYPE STANDARD TABLE OF bapi2017_gm_item_create,
+          item_create_table TYPE tab_bapi_goodsmvt_item,
           item              TYPE bapi2017_gm_item_create,
           return            TYPE STANDARD TABLE OF bapiret2,
           msg               TYPE string,
-          wa_return         TYPE bapiret2,
-          string_utils      TYPE REF TO /s4tax/string_utils.
+          string_utils      TYPE REF TO /s4tax/string_utils,
+          reporter_sheet    TYPE REF TO /s4tax/ireporter,
+          item_created      TYPE bapi2017_gm_item_create,
+          material_created  TYPE /s4tax/t4s_sheet-docref.
 
     CREATE OBJECT string_utils.
+    reporter_sheet = service_sheet->get_reporter( ).
 
     header-pstng_date = sy-datum.
     header-doc_date = sy-datum.
@@ -377,32 +397,31 @@ CLASS main_process IMPLEMENTATION.
                                                    msg2      = pedido_item-ebelp
                                                    separator = '-' ).
     gm_code = '01'.
-
     item-move_type = '101'.
     item-po_number = pedido_item-ebeln.
     item-po_item   = pedido_item-ebelp.
     APPEND item TO item_create_table.
 
-    return = call_bapi_goodsmvt_create( goodsmvt_header     = header
-                                        goodsmvt_code       = gm_code
-                                        goodsmvt_item_table = item_create_table ).
+    me->call_bapi_goodsmvt_create( EXPORTING goodsmvt_header = header goodsmvt_code       = gm_code
+                                   CHANGING  result = return goodsmvt_item_table = item_create_table ).
 
     READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
       call_bapi_transaction_commit( ).
-      "to do logar
-      RETURN.
+      result = abap_true.
+
+      READ TABLE item_create_table INTO item_created INDEX 1.
+      material_created = item_created-material.
+      service_sheet->set_docref( material_created ).
+      "service_sheet->set_itmref( item_created-matdoc_itm ).
+    ELSE.
+      service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+      call_bapi_transaction_rollback( ).
+      MESSAGE e001(/s4tax/4service) WITH pedido_item-ebeln INTO msg.
+      reporter_sheet->error( msg ).
     ENDIF.
 
-    call_bapi_transaction_rollback( ).
-    DELETE return WHERE type <> 'E'.
-    MESSAGE e001(/s4tax/4service) WITH pedido_item-ebeln INTO msg.
-    reporter->error( msg ).
-
-    LOOP AT return INTO wa_return.
-      CONCATENATE wa_return-type wa_return-id wa_return-number wa_return-message INTO msg SEPARATED BY '/'.
-      reporter->error( msg ).
-    ENDLOOP.
+    log_bapi_return( bapi_return = return reporter = reporter_sheet ).
   ENDMETHOD.
 
   METHOD call_bapi_goodsmvt_create.
@@ -418,6 +437,38 @@ CLASS main_process IMPLEMENTATION.
 
   METHOD get_reporter.
     result = service_sheet->get_reporter( ).
+  ENDMETHOD.
+
+
+  METHOD call_bapi_po_change.
+
+    CALL FUNCTION 'BAPI_PO_CHANGE'
+      EXPORTING
+        purchaseorder = poheader-po_number
+        poheader      = poheader
+        poheaderx     = poheaderx
+      TABLES
+        return        = result
+        poitem        = pedido_po_item-poitem
+        poitemx       = pedido_po_item-poitemx.
+
+  ENDMETHOD.
+
+
+  METHOD log_bapi_return.
+
+    DATA return TYPE bapiret2.
+    DATA msg TYPE string.
+
+    LOOP AT bapi_return INTO return.
+      CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
+      IF return-type = 'E'.
+        reporter->error( msg ).
+        CONTINUE.
+      ENDIF.
+      reporter->info( msg ).
+    ENDLOOP.
+
   ENDMETHOD.
 
 ENDCLASS.

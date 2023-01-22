@@ -39,7 +39,19 @@ CLASS /s4tax/model_t4s_sheet DEFINITION
       set_update_name IMPORTING iv_update_name TYPE /s4tax/t4s_sheet-update_name,
 
       get_credat RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-credat,
-      set_credat IMPORTING iv_credat TYPE /s4tax/t4s_sheet-credat.
+      set_credat IMPORTING iv_credat TYPE /s4tax/t4s_sheet-credat,
+
+      get_order_number RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-order_number,
+      set_order_number IMPORTING iv_order_number TYPE /s4tax/t4s_sheet-order_number,
+
+      get_order_item RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-order_item,
+      set_order_item IMPORTING iv_order_item TYPE /s4tax/t4s_sheet-order_item,
+
+      get_docref RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-docref,
+      set_docref IMPORTING iv_docref TYPE /s4tax/t4s_sheet-docref,
+
+      get_itmref RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-itmref,
+      set_itmref IMPORTING iv_itmref TYPE /s4tax/t4s_sheet-itmref.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -156,6 +168,38 @@ CLASS /s4tax/model_t4s_sheet IMPLEMENTATION.
 
   METHOD set_credat.
     me->struct-credat = iv_credat.
+  ENDMETHOD.
+
+  METHOD get_docref.
+    result = me->struct-docref.
+  ENDMETHOD.
+
+  METHOD get_itmref.
+    result = me->struct-itmref.
+  ENDMETHOD.
+
+  METHOD set_docref.
+    me->struct-docref = iv_docref.
+  ENDMETHOD.
+
+  METHOD set_itmref.
+    me->struct-itmref = iv_itmref.
+  ENDMETHOD.
+
+  METHOD get_order_item.
+
+  ENDMETHOD.
+
+  METHOD get_order_number.
+
+  ENDMETHOD.
+
+  METHOD set_order_item.
+
+  ENDMETHOD.
+
+  METHOD set_order_number.
+
   ENDMETHOD.
 
 ENDCLASS.

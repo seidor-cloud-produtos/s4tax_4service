@@ -39,6 +39,10 @@ CLASS /s4tax/4s_sheet IMPLEMENTATION.
     me->set_branch_id( iw_struct-branch_id ).
     me->set_provider_fiscal_id_number( iw_struct-provider_fiscal_id_number ).
     me->set_employment_erp_code( iw_struct-employment_erp_code ).
+    me->set_docref( iw_struct-docref ).
+    me->set_itmref( iw_struct-itmref ).
+    me->set_order_number( iw_struct-order_number ).
+    me->set_order_item( iw_struct-order_item ).
     me->set_appointment_id( iw_struct-appointment_id ).
     me->set_approved_value( iw_struct-approved_value ).
     me->set_status( iw_struct-status ).

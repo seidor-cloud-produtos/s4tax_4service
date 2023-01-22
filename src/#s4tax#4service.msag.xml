@@ -32,6 +32,12 @@
      <MSGNR>003</MSGNR>
      <TEXT>Erro ao criar apontamento. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
     </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>004</MSGNR>
+     <TEXT>Não foi possível alterar o Pedido. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>
