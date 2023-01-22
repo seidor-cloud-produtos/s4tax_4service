@@ -170,7 +170,8 @@ CLASS main_process IMPLEMENTATION.
           query_params        TYPE /s4tax/s_query_params_t,
           param               TYPE  /s4tax/s_query_params,
           initial_date        TYPE REF TO /s4tax/date,
-          final_date          TYPE REF TO /s4tax/date.
+          final_date          TYPE REF TO /s4tax/date,
+          datum_ini           TYPE datum.
 
     FIELD-SYMBOLS:
       <pedido_tab> TYPE ty_pedido_poitem,
@@ -179,7 +180,8 @@ CLASS main_process IMPLEMENTATION.
     CREATE OBJECT range_utils.
     TRY.
 
-        CREATE OBJECT initial_date EXPORTING date = '01012023'.
+        datum_ini = '20230101'.
+        CREATE OBJECT initial_date EXPORTING date = datum_ini.
         param-name = 'initial_date_commit'.
         param-value = initial_date->to_iso_8601(  ). "to-do deixar dinâmico - definir regra com a mari
         APPEND param TO query_params.
