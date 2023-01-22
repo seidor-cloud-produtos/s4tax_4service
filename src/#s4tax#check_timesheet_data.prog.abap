@@ -196,8 +196,8 @@ CLASS main_process IMPLEMENTATION.
         appoint_data_list = me->appoint_apvd_by_providers-data.
 
         LOOP AT appoint_data_list INTO appoint_data.
-          sheet-start_period = appoint_data-period-start_period.
-          sheet-end_period   = appoint_data-period-end_period.
+          sheet-start_period = initial_date->date.
+          sheet-end_period   = final_date->date.
 
           LOOP AT appoint_data-branches INTO branch.
             sheet-branch_id = branch-branch_id.
