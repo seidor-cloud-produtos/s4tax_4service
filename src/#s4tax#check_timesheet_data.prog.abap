@@ -477,6 +477,13 @@ START-OF-SELECTION.
   DATA: continue_process TYPE abap_bool,
         main_process     TYPE REF TO /s4tax/ijob_processor.
 
+  CASE abap_true.
+    WHEN sy-batch.
+      CREATE OBJECT main_process TYPE main_process.
+    WHEN OTHERS.
+      LEAVE PROGRAM.
+  ENDCASE.
+
   continue_process = main_process->pre_process( ).
   IF continue_process = abap_false.
     EXIT.
