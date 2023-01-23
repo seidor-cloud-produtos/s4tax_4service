@@ -187,19 +187,19 @@ CLASS /s4tax/model_t4s_sheet IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD get_order_item.
-
+    result = me->struct-order_item.
   ENDMETHOD.
 
   METHOD get_order_number.
-
+    result = me->struct-order_number.
   ENDMETHOD.
 
   METHOD set_order_item.
-
+    me->struct-order_item = iv_order_item.
   ENDMETHOD.
 
   METHOD set_order_number.
-
+    me->struct-order_number = iv_order_number.
   ENDMETHOD.
 
 ENDCLASS.

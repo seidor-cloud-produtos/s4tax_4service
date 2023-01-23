@@ -148,9 +148,13 @@ CLASS main_process IMPLEMENTATION.
           dao_partner        TYPE REF TO /s4tax/idao_partner,
           initial_date       TYPE REF TO /s4tax/date,
           final_date         TYPE REF TO /s4tax/date,
-          datum_ini          TYPE datum.
+          datum_ini          TYPE datum,
+          sheet_table        TYPE /s4tax/t4s_sheet_t,
+          range_utils        TYPE REF TO /s4tax/range_utils.
+
 
     TRY.
+        CREATE OBJECT range_utils.
 
         datum_ini = '20230101'.
         CREATE OBJECT initial_date EXPORTING date = datum_ini.
@@ -160,6 +164,9 @@ CLASS main_process IMPLEMENTATION.
 
         dao_4service_sheet = me->dao_pack_4service->four_service_sheet( ).
         dao_4service_sheet->save_many( sheet_list ).
+        sheet_table = dao_4service_sheet->objects_to_struct( sheet_list ).
+        fiscal_range = range_utils->specific_range( low = 'PROVIDER_FISCAL_ID_NUMBER'
+                                                    range  = sheet_table[] ).
 
         dao_partner = me->dao_pack_partner->partner( ).
         partner_list = dao_partner->get_many( fiscal_range ).
@@ -197,7 +204,6 @@ CLASS main_process IMPLEMENTATION.
           appoint_data        TYPE /s4tax/s_apprvd_appointments,
           sheet               TYPE /s4tax/t4s_sheet,
           service_sheet       TYPE REF TO /s4tax/4s_sheet,
-          fiscal_range        TYPE ace_generic_range_t,
           range_utils         TYPE REF TO /s4tax/range_utils,
           branch              TYPE /s4tax/s_appointments_branches,
           provider            TYPE /s4tax/s_appoint_providers,
@@ -206,8 +212,6 @@ CLASS main_process IMPLEMENTATION.
           query_params        TYPE /s4tax/s_query_params_t,
           param               TYPE  /s4tax/s_query_params,
           cx_root             TYPE REF TO cx_root.
-
-    CREATE OBJECT range_utils.
 
     param-name = 'initial_date_commit'. "to-do deixar dinâmico - definir regra com a mari
     param-value = initial_date->to_iso_8601(  ).
@@ -233,8 +237,6 @@ CLASS main_process IMPLEMENTATION.
 
         LOOP AT branch-providers INTO provider.
           sheet-provider_fiscal_id_number = provider-provider_fiscal_id_number.
-          fiscal_range = range_utils->append_single_value( low = sheet-provider_fiscal_id_number
-                                                           range  = fiscal_range ).
 
           LOOP AT provider-employees INTO employee.
             sheet-employment_erp_code = employee-employment_erp_code.
@@ -291,13 +293,13 @@ CLASS main_process IMPLEMENTATION.
       sheet->set_order_number( pedido-ebeln ).
       sheet->set_order_item( pedido-ebelp ).
 
-      po_change_success = me->change_purchase_order( service_sheet = sheet ).
+      po_change_success = me->change_purchase_order( sheet ).
       IF po_change_success = abap_false.
         sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
         CONTINUE.
       ENDIF.
 
-      is_generated = me->generate_migo( service_sheet = sheet ).
+      is_generated = me->generate_migo( sheet ).
       IF is_generated = abap_false.
         sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
         CONTINUE.
