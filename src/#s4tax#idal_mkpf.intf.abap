@@ -1,0 +1,4 @@
+INTERFACE /s4tax/idal_mkpf
+  PUBLIC .
+
+ENDINTERFACE.
