@@ -15,7 +15,10 @@ CLASS /s4tax/dao_pack_4service DEFINITION
   PRIVATE SECTION.
     CLASS-DATA: instance TYPE REF TO /s4tax/dao_pack_4service.
 
-    DATA: four_service_sheet TYPE REF TO /s4tax/idao_4service_sheet.
+    DATA: four_service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
+          mkpf               TYPE REF TO /s4tax/idao_mkpf,
+          mseg               TYPE REF TO /s4tax/idao_mseg,
+          mkpf_dal           TYPE REF TO /s4tax/idal_mkpf.
 ENDCLASS.
 
 
@@ -35,6 +38,30 @@ CLASS /s4tax/dao_pack_4service IMPLEMENTATION.
     ENDIF.
 
     result = instance.
+  ENDMETHOD.
+
+  METHOD /s4tax/idao_pack_4service~mkpf.
+    IF me->mkpf IS NOT BOUND.
+      CREATE OBJECT me->mkpf TYPE /s4tax/dao_mkpf.
+    ENDIF.
+
+    result = me->mkpf.
+  ENDMETHOD.
+
+  METHOD /s4tax/idao_pack_4service~mseg.
+    IF me->mseg IS NOT BOUND.
+      CREATE OBJECT me->mseg TYPE /s4tax/dao_mseg.
+    ENDIF.
+
+    result = me->mseg.
+  ENDMETHOD.
+
+  METHOD /s4tax/idao_pack_4service~mkpf_dal.
+    IF me->mkpf_dal IS NOT BOUND.
+      CREATE OBJECT me->mkpf_dal TYPE /s4tax/dal_mkpf.
+    ENDIF.
+
+    result = me->mkpf_dal.
   ENDMETHOD.
 
 ENDCLASS.

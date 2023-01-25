@@ -7,8 +7,12 @@ INTERFACE /s4tax/idao_4service_sheet
 
     get_all RETURNING VALUE(result)  TYPE /s4tax/4s_sheet_t,
 
-    get_many_for_monitor IMPORTING initial_date  TYPE /s4tax/t4s_sheet-start_period
-                                   final_date    TYPE /s4tax/t4s_sheet-end_period
+    get_many_by_period IMPORTING initial_date TYPE /s4tax/t4s_sheet-start_period
+                            final_date   TYPE /s4tax/t4s_sheet-end_period
+                            RETURNING VALUE(result)   TYPE /s4tax/4s_sheet_t,
+
+    get_many_for_monitor IMPORTING initial_date    TYPE /s4tax/t4s_sheet-start_period
+                                   final_date      TYPE /s4tax/t4s_sheet-end_period
                                    fiscal_id_range TYPE ace_generic_range_t
                                    branch_range    TYPE ace_generic_range_t
                          RETURNING VALUE(result)   TYPE /s4tax/4s_sheet_t,

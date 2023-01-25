@@ -26,7 +26,13 @@ CLASS service_alv DEFINITION.
           ddic_utils       TYPE REF TO /s4tax/ddic_utils.
     METHODS:
       get_fieldcat RETURNING VALUE(result) TYPE lvc_t_fcat,
-      set_exclude_buttons RETURNING VALUE(result) TYPE ui_functions.
+
+      set_exclude_buttons RETURNING VALUE(result) TYPE ui_functions,
+
+      display_log IMPORTING data TYPE REF TO /s4tax/s_appointments_4s_alv,
+
+      on_hotspot_click FOR EVENT hotspot_click OF cl_gui_alv_grid
+        IMPORTING es_row_no e_column_id e_row_id.
 
 ENDCLASS.
 
@@ -40,6 +46,35 @@ CLASS service_alv IMPLEMENTATION.
 
   METHOD refresh_fields.
     REFRESH me->appointments_alv.
+  ENDMETHOD.
+
+    METHOD on_hotspot_click.
+    DATA: data TYPE REF TO /s4tax/s_appointments_4s_alv.
+
+    READ TABLE me->appointments_alv REFERENCE INTO data INDEX e_row_id-index.
+
+    IF sy-subrc NE 0.
+      RETURN.
+    ENDIF.
+
+    CASE e_column_id-fieldname.
+      WHEN 'STATUS'.
+        me->display_log( data ).
+    ENDCASE.
+  ENDMETHOD.
+
+  METHOD display_log.
+
+    IF data IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    IF data->reporter IS NOT BOUND.
+      RETURN.
+    ENDIF.
+
+    data->reporter->fullscreen( ).
+
   ENDMETHOD.
 
 
@@ -110,6 +145,8 @@ CLASS service_alv IMPLEMENTATION.
           lr_field->scrtext_m = 'Usuário'.
           lr_field->scrtext_l = 'Usuário'.
 
+        WHEN 'STATUS'.
+          lr_field->hotspot = abap_true.
       ENDCASE.
 
     ENDLOOP.
@@ -152,6 +189,8 @@ CLASS service_alv IMPLEMENTATION.
                  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
 
+    SET HANDLER: me->on_hotspot_click      FOR me->alv.
+
   ENDMETHOD.
 
   METHOD set_exclude_buttons.
@@ -192,6 +231,8 @@ CLASS service_alv IMPLEMENTATION.
   METHOD set_data_table.
     me->appointments_alv = data_table.
   ENDMETHOD.
+
+
 
 ENDCLASS.
 
@@ -321,7 +362,7 @@ CLASS main IMPLEMENTATION.
       alv_line-start_period = service_sheet->get_start_period(  ).
       alv_line-update_at = service_sheet->get_update_at(  ).
       alv_line-update_name = service_sheet->get_update_name(  ).
-
+      alv_line-reporter = service_sheet->get_reporter(  ).
       alv_line-credat = service_sheet->get_credat(  ).
 
       CREATE OBJECT date.
@@ -405,15 +446,18 @@ CLASS main IMPLEMENTATION.
 
 ENDCLASS.
 
-DATA: monitor         TYPE REF TO main,
-      fiscal_id_range TYPE ace_generic_range_t,
-      date_range      TYPE ace_generic_range_t,
-      branch_id_range TYPE ace_generic_range_t,
-      t4s_sheet       TYPE /s4tax/t4s_sheet.
+DATA: monitor            TYPE REF TO main,
+      fiscal_id_range    TYPE ace_generic_range_t,
+      date_range         TYPE ace_generic_range_t,
+      branch_id_range    TYPE ace_generic_range_t,
+      t4s_sheet          TYPE /s4tax/t4s_sheet,
+      first_day_of_month TYPE sy-datum,
+      last_day_of_month  TYPE sy-datum.
+
 
 SELECT-OPTIONS: s_fiscal FOR t4s_sheet-provider_fiscal_id_number,
-                 s_branch FOR t4s_sheet-branch_id,
-                s_date FOR sy-datum NO-EXTENSION DEFAULT sy-datum TO sy-datum OBLIGATORY.
+                s_branch FOR t4s_sheet-branch_id,
+                s_date FOR sy-datum NO-EXTENSION OBLIGATORY.
 
 START-OF-SELECTION.
 
@@ -428,6 +472,30 @@ START-OF-SELECTION.
       branch_range    = branch_id_range.
 
   monitor->run( ).
+
+INITIALIZATION.
+
+  CONCATENATE sy-datum+0(4) sy-datum+4(2) '01' INTO first_day_of_month.
+
+  CALL FUNCTION 'RP_LAST_DAY_OF_MONTHS'
+    EXPORTING
+      day_in            = sy-datum
+    IMPORTING
+      last_day_of_month = last_day_of_month
+    EXCEPTIONS
+      day_in_no_date    = 1
+      OTHERS            = 2.
+
+  IF sy-subrc <> 0.
+    RETURN.
+  ENDIF.
+
+  s_date-low = first_day_of_month.
+  s_date-high = last_day_of_month.
+  s_date-sign = 'I'.
+  s_date-option = 'EQ'.
+
+  APPEND s_date.
 
   INCLUDE /s4tax/4service_monitor_sero01.
 
