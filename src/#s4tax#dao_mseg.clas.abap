@@ -55,8 +55,7 @@ CLASS /s4tax/dao_mseg IMPLEMENTATION.
 
     SELECT * FROM mseg
     INTO TABLE material
-    WHERE mblnr IN material_number_range
-    AND mjahr EQ material_year.
+    WHERE mblnr IN material_number_range.
 
     IF sy-subrc <> 0.
       RETURN.
