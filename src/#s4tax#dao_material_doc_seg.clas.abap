@@ -1,20 +1,20 @@
-CLASS /s4tax/dao_mseg DEFINITION
+CLASS /s4tax/dao_material_doc_seg DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC .
 
   PUBLIC SECTION.
     TYPE-POOLS: abap.
-    INTERFACES /s4tax/idao_mseg.
+    INTERFACES /s4tax/idao_material_doc_seg.
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS /s4tax/dao_mseg IMPLEMENTATION.
-  METHOD /s4tax/idao_mseg~objects_to_struct.
-    DATA: material TYPE REF TO /s4tax/mseg.
+CLASS /s4tax/dao_material_doc_seg IMPLEMENTATION.
+  METHOD /s4tax/idao_material_doc_seg~objects_to_struct.
+    DATA: material TYPE REF TO /s4tax/material_document_seg.
 
     IF material_list IS INITIAL.
       RETURN.
@@ -28,7 +28,7 @@ CLASS /s4tax/dao_mseg IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_mseg~save.
+  METHOD /s4tax/idao_material_doc_seg~save.
     IF material IS NOT BOUND.
       RETURN.
     ENDIF.
@@ -36,9 +36,9 @@ CLASS /s4tax/dao_mseg IMPLEMENTATION.
     MODIFY mseg FROM material->struct.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_mseg~struct_to_objects.
+  METHOD /s4tax/idao_material_doc_seg~struct_to_objects.
     DATA: s_material TYPE mseg,
-          material   TYPE REF TO /s4tax/mseg.
+          material   TYPE REF TO /s4tax/material_document_seg.
 
     IF material_table IS INITIAL.
       RETURN.
@@ -50,7 +50,7 @@ CLASS /s4tax/dao_mseg IMPLEMENTATION.
     ENDLOOP.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_mseg~get_many_by_material.
+  METHOD /s4tax/idao_material_doc_seg~get_many_by_material.
     DATA: material TYPE /s4tax/tmseg_t.
 
     SELECT * FROM mseg
@@ -61,7 +61,7 @@ CLASS /s4tax/dao_mseg IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    result = me->/s4tax/idao_mseg~struct_to_objects( material ).
+    result = me->/s4tax/idao_material_doc_seg~struct_to_objects( material ).
   ENDMETHOD.
 
 ENDCLASS.

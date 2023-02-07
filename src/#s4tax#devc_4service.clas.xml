@@ -3,13 +3,14 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>/S4TAX/DAL_MKPF</CLSNAME>
+    <CLSNAME>/S4TAX/DEVC_4SERVICE</CLSNAME>
     <LANGU>P</LANGU>
-    <DESCRIPT>DAL para tabela MKPF</DESCRIPT>
+    <DESCRIPT>Componentes para integração com produto 4Service</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

@@ -7,9 +7,12 @@ INTERFACE /s4tax/idao_4service_sheet
 
     get_all RETURNING VALUE(result)  TYPE /s4tax/4s_sheet_t,
 
-    get_many_by_period IMPORTING initial_date TYPE /s4tax/t4s_sheet-start_period
-                            final_date   TYPE /s4tax/t4s_sheet-end_period
-                            RETURNING VALUE(result)   TYPE /s4tax/4s_sheet_t,
+    get_many_by_period IMPORTING initial_date  TYPE /s4tax/t4s_sheet-start_period
+                                 final_date    TYPE /s4tax/t4s_sheet-end_period
+                       RETURNING VALUE(result) TYPE /s4tax/4s_sheet_t,
+
+    get_by_appointment_id IMPORTING appointment_id TYPE /s4tax/t4s_sheet-appointment_id
+                          RETURNING VALUE(result)  TYPE REF TO /s4tax/4s_sheet,
 
     get_many_for_monitor IMPORTING initial_date    TYPE /s4tax/t4s_sheet-start_period
                                    final_date      TYPE /s4tax/t4s_sheet-end_period

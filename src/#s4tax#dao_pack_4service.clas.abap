@@ -15,10 +15,11 @@ CLASS /s4tax/dao_pack_4service DEFINITION
   PRIVATE SECTION.
     CLASS-DATA: instance TYPE REF TO /s4tax/dao_pack_4service.
 
-    DATA: four_service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
-          mkpf               TYPE REF TO /s4tax/idao_mkpf,
-          mseg               TYPE REF TO /s4tax/idao_mseg,
-          mkpf_dal           TYPE REF TO /s4tax/idal_mkpf.
+    DATA: four_service_sheet    TYPE REF TO /s4tax/idao_4service_sheet,
+          material_document     TYPE REF TO /s4tax/idao_material_document,
+          material_doc_seg      TYPE REF TO /s4tax/idao_material_doc_seg,
+          material_document_dal TYPE REF TO /s4tax/idal_material_document,
+          dal_4service_sheet    TYPE REF TO /s4tax/idal_4service_sheet.
 ENDCLASS.
 
 
@@ -40,28 +41,36 @@ CLASS /s4tax/dao_pack_4service IMPLEMENTATION.
     result = instance.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_pack_4service~mkpf.
-    IF me->mkpf IS NOT BOUND.
-      CREATE OBJECT me->mkpf TYPE /s4tax/dao_mkpf.
+  METHOD /s4tax/idao_pack_4service~dal_4service_sheet.
+    IF me->dal_4service_sheet IS NOT BOUND.
+      CREATE OBJECT me->dal_4service_sheet TYPE /s4tax/dal_4service_sheet.
     ENDIF.
 
-    result = me->mkpf.
+    result = me->dal_4service_sheet.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_pack_4service~mseg.
-    IF me->mseg IS NOT BOUND.
-      CREATE OBJECT me->mseg TYPE /s4tax/dao_mseg.
+  METHOD /s4tax/idao_pack_4service~material_document.
+    IF me->material_document IS NOT BOUND.
+      CREATE OBJECT me->material_document TYPE /s4tax/dao_material_document.
     ENDIF.
 
-    result = me->mseg.
+    result = me->material_document.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_pack_4service~mkpf_dal.
-    IF me->mkpf_dal IS NOT BOUND.
-      CREATE OBJECT me->mkpf_dal TYPE /s4tax/dal_mkpf.
+  METHOD /s4tax/idao_pack_4service~material_doc_seg.
+    IF me->material_doc_seg IS NOT BOUND.
+      CREATE OBJECT me->material_doc_seg TYPE /s4tax/dao_material_doc_seg.
     ENDIF.
 
-    result = me->mkpf_dal.
+    result = me->material_doc_seg.
+  ENDMETHOD.
+
+  METHOD /s4tax/idao_pack_4service~material_document_dal.
+    IF me->material_document_dal IS NOT BOUND.
+      CREATE OBJECT me->material_document_dal TYPE /s4tax/dal_material_document.
+    ENDIF.
+
+    result = me->material_document_dal.
   ENDMETHOD.
 
 ENDCLASS.

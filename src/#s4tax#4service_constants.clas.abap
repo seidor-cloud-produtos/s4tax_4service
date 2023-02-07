@@ -10,7 +10,17 @@ CLASS /s4tax/4service_constants DEFINITION
         in_process TYPE char2 VALUE '01',
         finished   TYPE char2 VALUE '02',
         error      TYPE char2 VALUE '03',
-      END OF timesheet_status.
+      END OF timesheet_status,
+
+      BEGIN OF params,
+        initial_date_commit TYPE string VALUE 'initial_date_commit',
+        final_date_commit   TYPE string VALUE 'final_date_commit',
+      END OF params,
+
+      BEGIN OF source,
+        pedido_compra TYPE char2 VALUE '01',
+        migo          TYPE char2 VALUE '02',
+      END OF source.
 
 
   PROTECTED SECTION.

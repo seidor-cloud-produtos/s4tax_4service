@@ -3,9 +3,9 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOINTERF>
-    <CLSNAME>/S4TAX/IDAL_MKPF</CLSNAME>
+    <CLSNAME>/S4TAX/IDAL_4SERVICE_SHEET</CLSNAME>
     <LANGU>P</LANGU>
-    <DESCRIPT>DAL para tabela MKPF</DESCRIPT>
+    <DESCRIPT>Relacionamentos de 4Service</DESCRIPT>
     <EXPOSURE>2</EXPOSURE>
     <STATE>1</STATE>
     <UNICODE>X</UNICODE>

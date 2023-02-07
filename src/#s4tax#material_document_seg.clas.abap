@@ -1,18 +1,21 @@
-CLASS /s4tax/mseg DEFINITION
+CLASS /s4tax/material_document_seg DEFINITION
   PUBLIC
   INHERITING FROM /s4tax/model_mseg
   FINAL
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-    METHODS: constructor IMPORTING iw_struct TYPE mseg OPTIONAL.
+
+    METHODS constructor IMPORTING iw_struct TYPE mseg OPTIONAL.
   PROTECTED SECTION.
   PRIVATE SECTION.
 ENDCLASS.
 
 
 
-CLASS /s4tax/mseg IMPLEMENTATION.
+CLASS /s4tax/material_document_seg IMPLEMENTATION.
+
+
   METHOD constructor.
 
     super->constructor( ).
@@ -70,5 +73,4 @@ CLASS /s4tax/mseg IMPLEMENTATION.
     me->set_gsber( iw_struct-gsber ).
 
   ENDMETHOD.
-
 ENDCLASS.

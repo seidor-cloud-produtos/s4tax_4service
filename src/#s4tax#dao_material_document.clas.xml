@@ -3,13 +3,14 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <VSEOCLASS>
-    <CLSNAME>/S4TAX/MSEG</CLSNAME>
+    <CLSNAME>/S4TAX/DAO_MATERIAL_DOCUMENT</CLSNAME>
     <LANGU>P</LANGU>
-    <DESCRIPT>BO para tabela MSEG</DESCRIPT>
+    <DESCRIPT>DAO para tabela MKPF</DESCRIPT>
     <STATE>1</STATE>
     <CLSCCINCL>X</CLSCCINCL>
     <FIXPT>X</FIXPT>
     <UNICODE>X</UNICODE>
+    <WITH_UNIT_TESTS>X</WITH_UNIT_TESTS>
    </VSEOCLASS>
   </asx:values>
  </asx:abap>

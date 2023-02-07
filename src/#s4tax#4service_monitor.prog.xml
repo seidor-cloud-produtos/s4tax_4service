@@ -95,6 +95,22 @@
       <FUN_TEXT>Cancelar</FUN_TEXT>
      </RSMPE_FUNT>
      <RSMPE_FUNT>
+      <CODE>MIGO</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_NEW_TASK</TEXT_NAME>
+      <ICON_ID>@LJ@</ICON_ID>
+      <FUN_TEXT>Gerar Migo</FUN_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
+      <CODE>MODIFY</CODE>
+      <TEXTNO>001</TEXTNO>
+      <TEXT_TYPE>S</TEXT_TYPE>
+      <TEXT_NAME>ICON_CHANGE_TEXT</TEXT_NAME>
+      <ICON_ID>@0Q@</ICON_ID>
+      <FUN_TEXT>Modificar Pedido</FUN_TEXT>
+     </RSMPE_FUNT>
+     <RSMPE_FUNT>
       <CODE>REFRESH</CODE>
       <TEXTNO>001</TEXTNO>
       <TEXT_TYPE>S</TEXT_TYPE>
@@ -215,6 +231,24 @@
      <LENGTH>48</LENGTH>
     </item>
     <item>
+     <ID>I</ID>
+     <KEY>005</KEY>
+     <ENTRY>Nenhum documento selecionado</ENTRY>
+     <LENGTH>56</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>006</KEY>
+     <ENTRY>Modificar Pedido</ENTRY>
+     <LENGTH>26</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>007</KEY>
+     <ENTRY>Gerar Migo</ENTRY>
+     <LENGTH>20</LENGTH>
+    </item>
+    <item>
      <ID>R</ID>
      <ENTRY>Monitor de apontamentos para o 4Service</ENTRY>
      <LENGTH>39</LENGTH>
@@ -271,6 +305,24 @@
        <KEY>004</KEY>
        <ENTRY>Found Appointments</ENTRY>
        <LENGTH>48</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>005</KEY>
+       <ENTRY>No document selected</ENTRY>
+       <LENGTH>56</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>006</KEY>
+       <ENTRY>Modify Order</ENTRY>
+       <LENGTH>26</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>007</KEY>
+       <ENTRY>Generate Migo</ENTRY>
+       <LENGTH>20</LENGTH>
       </item>
       <item>
        <ID>R</ID>

@@ -1,25 +1,34 @@
-CLASS /s4tax/mkpf DEFINITION
+CLASS /s4tax/material_document DEFINITION
   PUBLIC
   INHERITING FROM /s4tax/model_mkpf
   FINAL
   CREATE PUBLIC .
 
   PUBLIC SECTION.
-    METHODS:
-      constructor IMPORTING iw_struct TYPE mkpf OPTIONAL,
 
-      add_mseg IMPORTING mseg TYPE REF TO /s4tax/mseg,
-
-      get_mseg_list RETURNING VALUE(result) TYPE /s4tax/mseg_t.
+    METHODS: constructor IMPORTING iw_struct TYPE mkpf OPTIONAL,
+      add_material_doc_segment IMPORTING material_doc_segment TYPE REF TO /s4tax/material_document_seg,
+      get_material_doc_segment_list RETURNING VALUE(result) TYPE /s4tax/material_document_seg_t .
   PROTECTED SECTION.
   PRIVATE SECTION.
-    DATA: mseg_list TYPE /s4tax/mseg_t.
+    DATA: material_doc_segment_list TYPE /s4tax/material_document_seg_t.
 
 ENDCLASS.
 
 
 
-CLASS /s4tax/mkpf IMPLEMENTATION.
+CLASS /s4tax/material_document IMPLEMENTATION.
+
+
+  METHOD add_material_doc_segment.
+    IF material_doc_segment IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    APPEND material_doc_segment TO me->material_doc_segment_list.
+  ENDMETHOD.
+
+
   METHOD constructor.
 
     super->constructor( ).
@@ -63,16 +72,8 @@ CLASS /s4tax/mkpf IMPLEMENTATION.
     me->set_xcompl( iw_struct-xcompl ).
   ENDMETHOD.
 
-  METHOD add_mseg.
-    IF mseg IS INITIAL.
-      RETURN.
-    ENDIF.
 
-    APPEND mseg TO me->mseg_list.
+  METHOD get_material_doc_segment_list.
+    result = me->material_doc_segment_list.
   ENDMETHOD.
-
-  METHOD get_mseg_list.
-    result = me->mseg_list.
-  ENDMETHOD.
-
 ENDCLASS.

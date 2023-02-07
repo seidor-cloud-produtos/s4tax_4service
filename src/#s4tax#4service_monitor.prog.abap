@@ -10,6 +10,15 @@ TYPE-POOLS: abap.
 CLASS service_alv DEFINITION.
 
   PUBLIC SECTION.
+
+    TYPE-POOLS: abap.
+
+    CONSTANTS:
+      BEGIN OF c_okcode,
+        modificar_pedido TYPE sy-ucomm VALUE 'MODIFY',
+        gerar_migo       TYPE sy-ucomm VALUE 'MIGO',
+      END OF c_okcode.
+
     METHODS:
       constructor IMPORTING container TYPE REF TO cl_gui_container,
       refresh_fields IMPORTING data TYPE REF TO /s4tax/s_appointments_4s_alv OPTIONAL,
@@ -18,6 +27,36 @@ CLASS service_alv DEFINITION.
       update_view.
 
   PROTECTED SECTION.
+    METHODS:
+      change_purchase_order IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
+                            RETURNING VALUE(result) TYPE abap_bool,
+
+      generate_migo IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
+                    RETURNING VALUE(result) TYPE abap_bool,
+
+      generate_migo_alv IMPORTING selected_lines TYPE lvc_t_row,
+
+      change_purchase_order_alv IMPORTING selected_lines TYPE lvc_t_row,
+
+      call_bapi_transaction_commit,
+
+      call_bapi_transaction_rollback,
+
+      call_bapi_goodsmvt_create IMPORTING goodsmvt_header     TYPE bapi2017_gm_head_01
+                                          goodsmvt_code       TYPE bapi2017_gm_code
+                                CHANGING  result              TYPE bapiret2_tab
+                                          goodsmvt_headret    TYPE bapi2017_gm_head_ret
+                                          goodsmvt_item_table TYPE tab_bapi_goodsmvt_item,
+
+      call_bapi_po_change IMPORTING poheader  TYPE bapimepoheader
+                                    poheaderx TYPE bapimepoheaderx
+                                    poitem    TYPE bapimepoitem
+                                    poitemx   TYPE bapimepoitemx
+                          CHANGING  result    TYPE bapiret2_tab,
+
+      log_bapi_return IMPORTING bapi_return TYPE bapiret2_tab
+                                reporter    TYPE REF TO /s4tax/ireporter.
+
 
   PRIVATE SECTION.
     DATA: alv              TYPE REF TO cl_gui_alv_grid,
@@ -27,12 +66,20 @@ CLASS service_alv DEFINITION.
     METHODS:
       get_fieldcat RETURNING VALUE(result) TYPE lvc_t_fcat,
 
+      get_selected_lines RETURNING VALUE(result) TYPE lvc_t_row,
+
       set_exclude_buttons RETURNING VALUE(result) TYPE ui_functions,
+
+      handle_toolbar      FOR EVENT toolbar OF cl_gui_alv_grid
+        IMPORTING e_object e_interactive,
 
       display_log IMPORTING data TYPE REF TO /s4tax/s_appointments_4s_alv,
 
       on_hotspot_click FOR EVENT hotspot_click OF cl_gui_alv_grid
-        IMPORTING es_row_no e_column_id e_row_id.
+        IMPORTING es_row_no e_column_id e_row_id,
+
+      handle_user_command FOR EVENT user_command OF cl_gui_alv_grid
+        IMPORTING e_ucomm.
 
 ENDCLASS.
 
@@ -48,7 +95,7 @@ CLASS service_alv IMPLEMENTATION.
     REFRESH me->appointments_alv.
   ENDMETHOD.
 
-    METHOD on_hotspot_click.
+  METHOD on_hotspot_click.
     DATA: data TYPE REF TO /s4tax/s_appointments_4s_alv.
 
     READ TABLE me->appointments_alv REFERENCE INTO data INDEX e_row_id-index.
@@ -189,8 +236,26 @@ CLASS service_alv IMPLEMENTATION.
                  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
     ENDIF.
 
-    SET HANDLER: me->on_hotspot_click      FOR me->alv.
+    SET HANDLER: me->handle_toolbar        FOR me->alv,
+                 me->on_hotspot_click      FOR me->alv,
+                 me->handle_user_command   FOR me->alv.
 
+  ENDMETHOD.
+
+  METHOD handle_toolbar.
+    DATA: toolbar TYPE stb_button.
+
+    toolbar-function  = c_okcode-modificar_pedido.
+    toolbar-icon      = icon_change_text.
+    toolbar-text      = TEXT-006.
+    toolbar-quickinfo = TEXT-006.
+    APPEND toolbar TO e_object->mt_toolbar.
+
+    toolbar-function  = c_okcode-gerar_migo.
+    toolbar-icon      = icon_new_task.
+    toolbar-text      = TEXT-007.
+    toolbar-quickinfo = TEXT-007.
+    APPEND toolbar TO e_object->mt_toolbar.
   ENDMETHOD.
 
   METHOD set_exclude_buttons.
@@ -234,11 +299,234 @@ CLASS service_alv IMPLEMENTATION.
 
 
 
+  METHOD get_selected_lines.
+    CALL METHOD me->alv->get_selected_rows IMPORTING et_index_rows = result.
+  ENDMETHOD.
+
+  METHOD handle_user_command.
+    DATA: selected_lines TYPE lvc_t_row,
+          require        TYPE abap_bool.
+
+    selected_lines = get_selected_lines( ).
+
+    IF lines( selected_lines ) EQ 0 AND require = abap_true.
+      MESSAGE TEXT-005 TYPE 'S' DISPLAY LIKE 'W'.
+      RETURN.
+    ENDIF.
+
+    CASE e_ucomm.
+      WHEN c_okcode-gerar_migo.
+        me->generate_migo_alv( selected_lines ).
+
+      WHEN c_okcode-modificar_pedido.
+        me->change_purchase_order_alv( selected_lines ).
+    ENDCASE.
+
+  ENDMETHOD.
+
+  METHOD change_purchase_order.
+    DATA: poheader       TYPE bapimepoheader,
+          poheaderx      TYPE bapimepoheaderx,
+          poitem         TYPE bapimepoitem,
+          poitemx        TYPE bapimepoitemx,
+          return_table   TYPE STANDARD TABLE OF bapiret2,
+          msg            TYPE string,
+          reporter_sheet TYPE REF TO /s4tax/ireporter.
+
+    reporter_sheet = service_sheet->get_reporter( ).
+
+    poheader-po_number = service_sheet->struct-order_number.
+    poheaderx-po_number = 'X'.
+
+    poitem-po_item = service_sheet->struct-order_item.
+    poitemx-po_item = service_sheet->struct-order_item.
+    poitem-net_price = service_sheet->struct-approved_value.
+    poitemx-net_price = 'X'.
+    poitem-gr_ind = 'X'.
+    poitemx-gr_ind = 'X'.
+    poitem-gr_non_val = 'X'.
+    poitemx-gr_non_val = 'X'.
+
+    call_bapi_po_change( EXPORTING poheader = poheader poheaderx = poheaderx poitem = poitem poitemx = poitemx
+                         CHANGING result = return_table ).
+
+    READ TABLE return_table TRANSPORTING NO FIELDS WITH KEY type = 'E'.
+    IF sy-subrc <> 0.
+      result = abap_true.
+      call_bapi_transaction_commit( ).
+    ELSE.
+      MESSAGE e004(/s4tax/4service) WITH sy-datum
+                                         service_sheet->struct-provider_fiscal_id_number
+                                         service_sheet->struct-order_number INTO msg.
+      reporter_sheet->error( msg ).
+      call_bapi_transaction_rollback( ).
+    ENDIF.
+
+    log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
+  ENDMETHOD.
+
+  METHOD generate_migo.
+    DATA: header            TYPE bapi2017_gm_head_01,
+          gm_code           TYPE bapi2017_gm_code,
+          item_create_table TYPE tab_bapi_goodsmvt_item,
+          migo_created      TYPE bapi2017_gm_head_ret,
+          item              TYPE bapi2017_gm_item_create,
+          return            TYPE STANDARD TABLE OF bapiret2,
+          msg               TYPE string,
+          string_utils      TYPE REF TO /s4tax/string_utils,
+          reporter_sheet    TYPE REF TO /s4tax/ireporter,
+          material_created  TYPE /s4tax/t4s_sheet-docref.
+
+    CREATE OBJECT string_utils.
+    reporter_sheet = service_sheet->get_reporter( ).
+
+    header-pstng_date = sy-datum.
+    header-doc_date = sy-datum.
+    header-ref_doc_no = string_utils->concatenate( msg1      = service_sheet->struct-order_number
+                                                   msg2      = service_sheet->struct-order_item
+                                                   separator = '-' ).
+    gm_code = '01'.
+    item-move_type = '101'.
+    item-po_number = service_sheet->struct-order_number.
+    item-po_item   = service_sheet->struct-order_item.
+    item-no_more_gr   = 'X'.
+    item-mvt_ind =  'B'.
+
+    APPEND item TO item_create_table.
+
+    me->call_bapi_goodsmvt_create( EXPORTING goodsmvt_header = header goodsmvt_code       = gm_code
+                                   CHANGING  result = return goodsmvt_item_table = item_create_table goodsmvt_headret = migo_created ).
+
+    READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
+    IF sy-subrc <> 0.
+      call_bapi_transaction_commit( ).
+      result = abap_true.
+
+      material_created = migo_created-mat_doc.
+      service_sheet->set_docref( material_created ).
+      "service_sheet->set_itmref( item_created-matdoc_itm ).
+    ELSE.
+      service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+      call_bapi_transaction_rollback( ).
+      MESSAGE e001(/s4tax/4service) WITH service_sheet->struct-order_number INTO msg.
+      reporter_sheet->error( msg ).
+    ENDIF.
+
+    log_bapi_return( bapi_return = return reporter = reporter_sheet ).
+  ENDMETHOD.
+
+  METHOD call_bapi_goodsmvt_create.
+    CALL FUNCTION 'BAPI_GOODSMVT_CREATE'
+      EXPORTING
+        goodsmvt_header  = goodsmvt_header
+        goodsmvt_code    = goodsmvt_code
+      IMPORTING
+        goodsmvt_headret = goodsmvt_headret
+      TABLES
+        goodsmvt_item    = goodsmvt_item_table
+        return           = result.
+  ENDMETHOD.
+
+
+  METHOD call_bapi_transaction_commit.
+    CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+      EXPORTING
+        wait = 'X'.
+  ENDMETHOD.
+
+  METHOD call_bapi_transaction_rollback.
+    CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+  ENDMETHOD.
+
+  METHOD log_bapi_return.
+
+    DATA: return TYPE bapiret2,
+          msg    TYPE string.
+
+    LOOP AT bapi_return INTO return.
+      CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
+      IF return-type = 'E'.
+        reporter->error( msg ).
+        CONTINUE.
+      ENDIF.
+      reporter->info( msg ).
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD call_bapi_po_change.
+    DATA: poitem_table  TYPE bapimepoitem_tp,
+          poitemx_table TYPE bapimepoitemx_tp.
+
+    APPEND poitem TO poitem_table.
+    APPEND poitemx TO poitemx_table.
+
+    CALL FUNCTION 'BAPI_PO_CHANGE'
+      EXPORTING
+        purchaseorder = poheader-po_number
+        poheader      = poheader
+        poheaderx     = poheaderx
+      TABLES
+        return        = result
+        poitem        = poitem_table
+        poitemx       = poitemx_table.
+  ENDMETHOD.
+
+  METHOD change_purchase_order_alv.
+    DATA: selected_item      TYPE REF TO lvc_s_row,
+          dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
+          alv_line           TYPE REF TO /s4tax/s_appointments_4s_alv,
+          service_sheet      TYPE REF TO /s4tax/4s_sheet.
+
+    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
+
+    LOOP AT selected_lines REFERENCE INTO selected_item.
+      READ TABLE me->appointments_alv REFERENCE INTO alv_line INDEX selected_item->index.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      service_sheet = dao_4service_sheet->get_by_appointment_id( alv_line->appointment_id ).
+
+      change_purchase_order( service_sheet ).
+    ENDLOOP.
+
+  ENDMETHOD.
+
+  METHOD generate_migo_alv.
+    DATA: selected_item      TYPE REF TO lvc_s_row,
+          dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
+          alv_line           TYPE REF TO /s4tax/s_appointments_4s_alv,
+          service_sheet      TYPE REF TO /s4tax/4s_sheet.
+
+    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
+
+    LOOP AT selected_lines REFERENCE INTO selected_item.
+      READ TABLE me->appointments_alv REFERENCE INTO alv_line INDEX selected_item->index.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      service_sheet = dao_4service_sheet->get_by_appointment_id( alv_line->appointment_id ).
+
+      generate_migo( service_sheet ).
+    ENDLOOP.
+  ENDMETHOD.
+
 ENDCLASS.
 
 CLASS main DEFINITION.
 
   PUBLIC SECTION.
+
+    CONSTANTS:
+      BEGIN OF c_okcode,
+        cancel  TYPE sy-ucomm VALUE 'CANCEL',
+        back    TYPE sy-ucomm VALUE 'BACK',
+        exit    TYPE sy-ucomm VALUE 'EXIT',
+        refresh TYPE sy-ucomm VALUE 'REFRESH',
+      END OF c_okcode.
+
     METHODS: constructor IMPORTING date_range        TYPE ace_generic_range_t
                                    fiscal_id_range   TYPE ace_generic_range_t
                                    branch_range      TYPE ace_generic_range_t
@@ -364,6 +652,8 @@ CLASS main IMPLEMENTATION.
       alv_line-update_name = service_sheet->get_update_name(  ).
       alv_line-reporter = service_sheet->get_reporter(  ).
       alv_line-credat = service_sheet->get_credat(  ).
+      alv_line-order_item = service_sheet->get_order_item(  ).
+      alv_line-order_number = service_sheet->get_order_number(  ).
 
       CREATE OBJECT date.
       IF alv_line-credat IS NOT INITIAL.
@@ -391,13 +681,13 @@ CLASS main IMPLEMENTATION.
 
   METHOD pai.
     CASE sy-ucomm.
-      WHEN 'BACK'.
+      WHEN c_okcode-back.
         LEAVE TO SCREEN 0.
 
-      WHEN 'EXIT' OR 'CANCEL'.
+      WHEN c_okcode-exit OR c_okcode-cancel.
         LEAVE PROGRAM.
 
-      WHEN 'REFRESH'.
+      WHEN c_okcode-refresh.
         me->refresh(  ).
     ENDCASE.
   ENDMETHOD.
@@ -452,7 +742,7 @@ DATA: monitor            TYPE REF TO main,
       branch_id_range    TYPE ace_generic_range_t,
       t4s_sheet          TYPE /s4tax/t4s_sheet,
       first_day_of_month TYPE sy-datum,
-      last_day_of_month  TYPE sy-datum.
+      date_last_day      TYPE REF TO /s4tax/date.
 
 
 SELECT-OPTIONS: s_fiscal FOR t4s_sheet-provider_fiscal_id_number,
@@ -477,21 +767,15 @@ INITIALIZATION.
 
   CONCATENATE sy-datum+0(4) sy-datum+4(2) '01' INTO first_day_of_month.
 
-  CALL FUNCTION 'RP_LAST_DAY_OF_MONTHS'
-    EXPORTING
-      day_in            = sy-datum
-    IMPORTING
-      last_day_of_month = last_day_of_month
-    EXCEPTIONS
-      day_in_no_date    = 1
-      OTHERS            = 2.
+  CREATE OBJECT date_last_day EXPORTING date = first_day_of_month.
+  date_last_day = date_last_day->last_day_of_month(  ).
 
   IF sy-subrc <> 0.
     RETURN.
   ENDIF.
 
   s_date-low = first_day_of_month.
-  s_date-high = last_day_of_month.
+  s_date-high = date_last_day->date.
   s_date-sign = 'I'.
   s_date-option = 'EQ'.
 

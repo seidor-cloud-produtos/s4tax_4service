@@ -4,8 +4,9 @@ INTERFACE /s4tax/idao_pack_4service
 
   METHODS:
     four_service_sheet RETURNING VALUE(result) TYPE REF TO /s4tax/idao_4service_sheet,
-    mkpf RETURNING VALUE(result) TYPE REF TO /s4tax/idao_mkpf,
-    mseg RETURNING VALUE(result) TYPE REF TO /s4tax/idao_mseg,
-    mkpf_dal RETURNING VALUE(result) TYPE REF TO /s4tax/idal_mkpf.
+    material_document RETURNING VALUE(result) TYPE REF TO /s4tax/idao_material_document,
+    material_doc_seg RETURNING VALUE(result) TYPE REF TO /s4tax/idao_material_doc_seg,
+    material_document_dal RETURNING VALUE(result) TYPE REF TO /s4tax/idal_material_document,
+    dal_4service_sheet RETURNING VALUE(result) TYPE REF TO /s4tax/idal_4service_sheet.
 
 ENDINTERFACE.

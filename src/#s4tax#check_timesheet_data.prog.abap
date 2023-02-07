@@ -5,19 +5,6 @@
 *&---------------------------------------------------------------------*
 REPORT /s4tax/check_timesheet_data.
 
-TYPES:
-
-  BEGIN OF y_pedido,
-    ebeln TYPE ekko-ebeln,
-    ebelp TYPE ekpo-ebelp,
-    bukrs TYPE ekko-bukrs,
-    werks TYPE ekpo-werks,
-    kostl TYPE ekkn-kostl,
-    lifnr TYPE ekko-lifnr,
-  END OF y_pedido,
-  ty_pedido TYPE TABLE OF y_pedido WITH KEY ebeln ebelp.
-
-
 CLASS main_process DEFINITION CREATE PUBLIC.
 
   PUBLIC SECTION.
@@ -29,15 +16,17 @@ CLASS main_process DEFINITION CREATE PUBLIC.
                             api_4service           TYPE REF TO /s4tax/iapi_4service OPTIONAL
                             dao_pack_partner       TYPE REF TO /s4tax/idao_pack_partner OPTIONAL
                             dao_pack_4service      TYPE REF TO /s4tax/idao_pack_4service OPTIONAL
-                            dao_pack_supplier_port TYPE REF TO /s4tax/idao_pack_supplier_port OPTIONAL.
+                            dao_pack_supplier_port TYPE REF TO /s4tax/idao_pack_supplier_port OPTIONAL
+                            dao_pack_gen_data      TYPE REF TO /s4tax/idao_pack_gen_data OPTIONAL.
 
   PROTECTED SECTION.
 
     DATA:
       reporter TYPE REF TO /s4tax/ireporter.
 
-    METHODS: change_purchase_order IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
-                                   RETURNING VALUE(result) TYPE abap_bool,
+    METHODS:
+      change_purchase_order IMPORTING service_sheet TYPE REF TO /s4tax/4s_sheet
+                            RETURNING VALUE(result) TYPE abap_bool,
 
       call_bapi_transaction_commit,
 
@@ -61,8 +50,9 @@ CLASS main_process DEFINITION CREATE PUBLIC.
                                     poitemx   TYPE bapimepoitemx
                           CHANGING  result    TYPE bapiret2_tab,
 
-      log_bapi_return IMPORTING bapi_return TYPE bapiret2_tab
-                                reporter    TYPE REF TO /s4tax/ireporter.
+      log_bapi_return IMPORTING bapi_return   TYPE bapiret2_tab
+                                reporter      TYPE REF TO /s4tax/ireporter
+                      RETURNING VALUE(result) TYPE abap_bool.
 
   PRIVATE SECTION.
     DATA:
@@ -70,16 +60,20 @@ CLASS main_process DEFINITION CREATE PUBLIC.
       appoint_apvd_by_providers TYPE /s4tax/s_apvd_appoint_list_o,
       dao_pack_4service         TYPE REF TO /s4tax/idao_pack_4service,
       dao_pack_partner          TYPE REF TO /s4tax/idao_pack_partner,
-      dao_pack_supplier_port    TYPE REF TO /s4tax/idao_pack_supplier_port.
+      dao_pack_supplier_port    TYPE REF TO /s4tax/idao_pack_supplier_port,
+      dao_pack_gen_data         TYPE REF TO /s4tax/idao_pack_gen_data.
 
     METHODS:
       get_api_data IMPORTING initial_date  TYPE REF TO /s4tax/date
                              final_date    TYPE REF TO /s4tax/date
                    RETURNING VALUE(result) TYPE /s4tax/4s_sheet_t,
 
+      get_last_day_of_month IMPORTING date          TYPE datum
+                            RETURNING VALUE(result) TYPE datum,
+
       process_sheet_list IMPORTING sheet_list         TYPE /s4tax/4s_sheet_t
                                    partner_table      TYPE /s4tax/tpartner_t
-                                   pedido_table       TYPE ty_pedido
+                                   pedido_table       TYPE /s4tax/idal_purchasing_doc=>tsimple_purchase
                                    dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
 
       crete_ref_doc_supp_portal IMPORTING sheet         TYPE REF TO /s4tax/4s_sheet
@@ -121,6 +115,11 @@ CLASS main_process IMPLEMENTATION.
           me->dao_pack_supplier_port = /s4tax/dao_pack_supplier_port=>default_instance(  ).
         ENDIF.
 
+        me->dao_pack_gen_data = dao_pack_gen_data.
+        IF me->dao_pack_gen_data IS INITIAL.
+          me->dao_pack_gen_data = /s4tax/dao_pack_gen_data=>default_instance( ).
+        ENDIF.
+
       CATCH cx_root INTO lx_root.
         msg = lx_root->get_text( ).
         me->reporter->error( msg ).
@@ -151,22 +150,22 @@ CLASS main_process IMPLEMENTATION.
           fiscal_range       TYPE ace_generic_range_t,
           partner_list       TYPE /s4tax/partner_t,
           partner_table      TYPE /s4tax/tpartner_t,
-          order_table        TYPE ty_pedido,
+          order_table        TYPE /s4tax/idal_purchasing_doc=>tsimple_purchase,
           dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
           dao_partner        TYPE REF TO /s4tax/idao_partner,
           initial_date       TYPE REF TO /s4tax/date,
           final_date         TYPE REF TO /s4tax/date,
-          datum_ini          TYPE datum,
           sheet_table        TYPE /s4tax/t4s_sheet_t,
+          dal_purchasing_doc TYPE REF TO /s4tax/idal_purchasing_doc,
           range_utils        TYPE REF TO /s4tax/range_utils.
 
 
     TRY.
         CREATE OBJECT range_utils.
+        CREATE OBJECT initial_date EXPORTING date = sy-datum.
+        initial_date = initial_date->subtract( months  = 1 ).
 
-        datum_ini = '20230101'.
-        CREATE OBJECT initial_date EXPORTING date = datum_ini.
-        final_date = initial_date->add( days = 30 ).
+        final_date = initial_date->last_day_of_month(  ).
 
         sheet_list = get_api_data( initial_date = initial_date final_date = final_date ).
 
@@ -180,28 +179,17 @@ CLASS main_process IMPLEMENTATION.
         partner_list = dao_partner->get_many( fiscal_range ).
         partner_table = dao_partner->object_to_struct( partner_list ).
 
-        SELECT k~ebeln p~ebelp k~bukrs p~werks n~kostl k~lifnr
-          INTO TABLE order_table
-          FROM ekko AS k
-         INNER JOIN ekpo AS p
-           ON k~ebeln = p~ebeln
-         LEFT JOIN ekkn AS n
-           ON n~ebeln = p~ebeln
-          FOR ALL ENTRIES IN partner_table
-        WHERE k~lifnr = partner_table-parid
-          AND k~bstyp = 'F'
-          AND p~loekz = ' '
-          AND k~aedat BETWEEN initial_date->date
-                          AND final_date->date
-          AND p~elikz <> 'X'.
+        dal_purchasing_doc = dao_pack_gen_data->purchasing_document_dal(  ).
 
-        IF sy-subrc <> 0.
-          RETURN.
-        ENDIF.
+        order_table = dal_purchasing_doc->get_simple_purchase(
+                        partner_table = partner_table
+                        initial_date  = initial_date->date
+                        final_date    = final_date->date
+                      ).
 
         process_sheet_list( sheet_list = sheet_list partner_table = partner_table
                             pedido_table = order_table dao_4service_sheet = dao_4service_sheet ).
-
+        result = abap_true.
       CATCH /s4tax/cx_http.
     ENDTRY.
   ENDMETHOD.
@@ -212,7 +200,6 @@ CLASS main_process IMPLEMENTATION.
           appoint_data          TYPE /s4tax/s_apprvd_appointments,
           sheet                 TYPE /s4tax/t4s_sheet,
           service_sheet         TYPE REF TO /s4tax/4s_sheet,
-          range_utils           TYPE REF TO /s4tax/range_utils,
           branch                TYPE /s4tax/s_appointments_branches,
           provider              TYPE /s4tax/s_appoint_providers,
           employee              TYPE /s4tax/s_appoint_employees,
@@ -221,13 +208,17 @@ CLASS main_process IMPLEMENTATION.
           param                 TYPE  /s4tax/s_query_params,
           cx_root               TYPE REF TO cx_root,
           dao_4service_sheet    TYPE REF TO /s4tax/idao_4service_sheet,
-          current_4service_list TYPE /s4tax/4s_sheet_t.
+          current_4service_list TYPE /s4tax/4s_sheet_t,
+          string_utils          TYPE REF TO /s4tax/string_utils,
+          date_formatted        TYPE string,
+          start_date            TYPE datum,
+          end_date              TYPE datum.
 
-    param-name = 'initial_date_commit'. "to-do deixar dinâmico - definir regra com a mari
+    param-name = /s4tax/4service_constants=>params-initial_date_commit. "to-do deixar dinâmico - definir regra com a mari
     param-value = initial_date->to_iso_8601(  ).
     APPEND param TO query_params.
 
-    param-name = 'final_date_commit'.
+    param-name = /s4tax/4service_constants=>params-final_date_commit.
     param-value = final_date->to_iso_8601(  ). "to-do deixar dinâmico
     APPEND param TO query_params.
 
@@ -235,7 +226,7 @@ CLASS main_process IMPLEMENTATION.
 
     current_4service_list = dao_4service_sheet->get_many_by_period( initial_date = initial_date->date
                                                                     final_date   = final_date->date ).
-
+    CREATE OBJECT string_utils.
     TRY.
         me->appoint_apvd_by_providers = api_4service->list_appoint_apvd_by_providers( query_params = query_params ).
       CATCH cx_root INTO cx_root.
@@ -244,8 +235,15 @@ CLASS main_process IMPLEMENTATION.
     appoint_data_list = me->appoint_apvd_by_providers-data.
 
     LOOP AT appoint_data_list INTO appoint_data.
-      sheet-start_period = initial_date->date.
-      sheet-end_period   = final_date->date.
+
+      date_formatted = string_utils->replace_characters( appoint_data-period-start_period ).
+      start_date = date_formatted(8).
+
+      date_formatted = string_utils->replace_characters( appoint_data-period-end_period ).
+      end_date = date_formatted(8).
+
+      sheet-start_period = start_date.
+      sheet-end_period   = end_date.
 
       LOOP AT appoint_data-branches INTO branch.
         sheet-branch_id = branch-branch_id.
@@ -285,7 +283,7 @@ CLASS main_process IMPLEMENTATION.
           service_reporter      TYPE REF TO /s4tax/ireporter,
           po_change_success     TYPE abap_bool,
           is_generated          TYPE abap_bool,
-          pedido                TYPE y_pedido,
+          pedido                TYPE /s4tax/idal_purchasing_doc=>simple_purchase,
           reference_doc         TYPE REF TO /s4tax/supp_doc_reference,
           reference_doc_list    TYPE /s4tax/supp_doc_reference_t,
           dao_sup_doc_reference TYPE REF TO /s4tax/idao_supp_doc_reference.
@@ -342,30 +340,14 @@ CLASS main_process IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD change_purchase_order.
-    DATA: poheader       TYPE bapimepoheader,
-          poheaderx      TYPE bapimepoheaderx,
-          poitem         TYPE bapimepoitem,
-          poitemx        TYPE bapimepoitemx,
-          return_table   TYPE STANDARD TABLE OF bapiret2,
-          msg            TYPE string,
-          reporter_sheet TYPE REF TO /s4tax/ireporter.
+    DATA: return_table       TYPE STANDARD TABLE OF bapiret2,
+          msg                TYPE string,
+          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet,
+          reporter_sheet     TYPE REF TO /s4tax/ireporter.
 
-    reporter_sheet = service_sheet->get_reporter( ).
 
-    poheader-po_number = service_sheet->struct-order_number.
-    poheaderx-po_number = 'X'.
-
-    poitem-po_item = service_sheet->struct-order_item.
-    poitemx-po_item = service_sheet->struct-order_item.
-    poitem-net_price = service_sheet->struct-approved_value.
-    poitemx-net_price = 'X'.
-    poitem-gr_ind = 'X'.
-    poitemx-gr_ind = 'X'.
-    poitem-gr_non_val = 'X'.
-    poitemx-gr_non_val = 'X'.
-
-    call_bapi_po_change( EXPORTING poheader = poheader poheaderx = poheaderx poitem = poitem poitemx = poitemx
-                         CHANGING result = return_table ).
+    dal_4service_sheet = dao_pack_4service->dal_4service_sheet(  ).
+    return_table = dal_4service_sheet->change_purchase_order( service_sheet ).
 
     READ TABLE return_table TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
@@ -379,7 +361,7 @@ CLASS main_process IMPLEMENTATION.
       call_bapi_transaction_rollback( ).
     ENDIF.
 
-    log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
+    result = log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
 
   ENDMETHOD.
 
@@ -397,45 +379,19 @@ CLASS main_process IMPLEMENTATION.
 
 
   METHOD generate_migo.
-    DATA: header            TYPE bapi2017_gm_head_01,
-          gm_code           TYPE bapi2017_gm_code,
-          item_create_table TYPE tab_bapi_goodsmvt_item,
-          migo_created      TYPE bapi2017_gm_head_ret,
-          item              TYPE bapi2017_gm_item_create,
-          return            TYPE STANDARD TABLE OF bapiret2,
-          msg               TYPE string,
-          string_utils      TYPE REF TO /s4tax/string_utils,
-          reporter_sheet    TYPE REF TO /s4tax/ireporter,
-          item_created      TYPE bapi2017_gm_item_create,
-          material_created  TYPE /s4tax/t4s_sheet-docref.
+    DATA: return             TYPE STANDARD TABLE OF bapiret2,
+          msg                TYPE string,
+          reporter_sheet     TYPE REF TO /s4tax/ireporter,
+          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet.
 
-    CREATE OBJECT string_utils.
-    reporter_sheet = service_sheet->get_reporter( ).
+    dal_4service_sheet = me->dao_pack_4service->dal_4service_sheet(  ).
 
-    header-pstng_date = sy-datum.
-    header-doc_date = sy-datum.
-    header-ref_doc_no = string_utils->concatenate( msg1      = service_sheet->struct-order_number
-                                                   msg2      = service_sheet->struct-order_item
-                                                   separator = '-' ).
-    gm_code = '01'.
-    item-move_type = '101'.
-    item-po_number = service_sheet->struct-order_number.
-    item-po_item   = service_sheet->struct-order_item.
-    item-no_more_gr   = 'X'.
-    item-mvt_ind =  'B'.
-
-    APPEND item TO item_create_table.
-
-    me->call_bapi_goodsmvt_create( EXPORTING goodsmvt_header = header goodsmvt_code       = gm_code
-                                   CHANGING  result = return goodsmvt_item_table = item_create_table goodsmvt_headret = migo_created ).
+    return = dal_4service_sheet->generate_migo( service_sheet ).
 
     READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
       call_bapi_transaction_commit( ).
       result = abap_true.
-
-      material_created = migo_created-mat_doc.
-      service_sheet->set_docref( material_created ).
       "service_sheet->set_itmref( item_created-matdoc_itm ).
     ELSE.
       service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
@@ -494,6 +450,7 @@ CLASS main_process IMPLEMENTATION.
       CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
       IF return-type = 'E'.
         reporter->error( msg ).
+        result = abap_false.
         CONTINUE.
       ENDIF.
       reporter->info( msg ).
@@ -508,9 +465,22 @@ CLASS main_process IMPLEMENTATION.
     result->set_docref( sheet->struct-docref ).
     result->set_itmref( sheet->struct-itmref ).
     result->set_credat( sheet->struct-credat ).
-    result->set_source( '02' ).
+    result->set_source( /s4tax/4service_constants=>source-pedido_compra ).
     result->set_updated_name( sy-uname ).
 
+  ENDMETHOD.
+
+  METHOD get_last_day_of_month.
+    CALL FUNCTION 'RP_LAST_DAY_OF_MONTHS'
+      EXPORTING
+        day_in            = date
+      IMPORTING
+        last_day_of_month = result
+      EXCEPTIONS
+        day_in_no_date    = 1
+        OTHERS            = 2.
+    IF sy-subrc <> 0.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

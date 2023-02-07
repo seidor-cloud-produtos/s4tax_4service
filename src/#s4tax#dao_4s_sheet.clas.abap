@@ -96,13 +96,27 @@ CLASS /s4tax/dao_4s_sheet IMPLEMENTATION.
 
     SELECT * FROM /s4tax/t4s_sheet
     INTO TABLE service_sheet_table
-    WHERE start_period EQ initial_date AND end_period EQ final_date.
+    WHERE start_period >= initial_date AND end_period <= final_date.
 
     IF sy-subrc <> 0.
       RETURN.
     ENDIF.
 
     result = me->/s4tax/idao_4service_sheet~struct_to_objects( service_sheet_table ).
+  ENDMETHOD.
+
+  METHOD /s4tax/idao_4service_sheet~get_by_appointment_id.
+    DATA: service_sheet TYPE /s4tax/t4s_sheet.
+
+    SELECT SINGLE * FROM /s4tax/t4s_sheet
+    INTO  service_sheet
+    WHERE appointment_id = appointment_id.
+
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    CREATE OBJECT result EXPORTING iw_struct = service_sheet.
   ENDMETHOD.
 
 ENDCLASS.
