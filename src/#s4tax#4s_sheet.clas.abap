@@ -50,6 +50,7 @@ CLASS /s4tax/4s_sheet IMPLEMENTATION.
     me->set_update_name( iw_struct-update_name ).
     me->set_credat( iw_struct-credat ).
     me->set_log_number( iw_struct-log_number ).
+    me->set_status_business( iw_struct-status_business ).
   ENDMETHOD.
 
   METHOD open_by_id.
@@ -80,7 +81,7 @@ CLASS /s4tax/4s_sheet IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    MESSAGE s002(/s4tax/4service) WITH me->struct-update_at me->struct-provider_fiscal_id_number me->struct-appointment_id INTO msg.
+    MESSAGE s002(/s4tax/4service) WITH sy-datum me->struct-provider_fiscal_id_number me->struct-order_number INTO msg.
     me->reporter->info( msg ).
     me->set_log_number( me->reporter->db_number ).
     result = me->reporter.

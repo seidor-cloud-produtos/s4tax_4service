@@ -27,8 +27,6 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
           reporter_sheet     TYPE REF TO /s4tax/ireporter,
           dal_purchasing_doc TYPE REF TO /s4tax/idal_purchasing_doc.
 
-    reporter_sheet = service_sheet->get_reporter( ).
-
     poheader-po_number = service_sheet->struct-order_number.
     poheaderx-po_number = 'X'.
 
@@ -62,7 +60,6 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
           dal_material_document TYPE REF TO /s4tax/idal_material_document.
 
     CREATE OBJECT string_utils.
-    reporter_sheet = service_sheet->get_reporter( ).
 
     header-pstng_date = sy-datum.
     header-doc_date = sy-datum.
@@ -75,6 +72,8 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
     item-po_item   = service_sheet->struct-order_item.
     item-no_more_gr   = 'X'.
     item-mvt_ind =  'B'.
+    item-po_pr_qnt =  1.
+    item-entry_qnt =  1.
 
     APPEND item TO item_create_table.
 

@@ -12,6 +12,14 @@ CLASS /s4tax/4service_constants DEFINITION
         error      TYPE char2 VALUE '03',
       END OF timesheet_status,
 
+      BEGIN OF business_status,
+        order_edit_success  TYPE char2 VALUE '01',
+        order_edit_error    TYPE char2 VALUE '02',
+        create_migo_success TYPE char2 VALUE '03',
+        create_migo_error   TYPE char2 VALUE '04',
+        finished            TYPE char2 VALUE '05',
+      END OF business_status,
+
       BEGIN OF params,
         initial_date_commit TYPE string VALUE 'initial_date_commit',
         final_date_commit   TYPE string VALUE 'final_date_commit',

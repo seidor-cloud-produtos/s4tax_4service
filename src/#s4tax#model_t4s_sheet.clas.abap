@@ -51,7 +51,10 @@ CLASS /s4tax/model_t4s_sheet DEFINITION
       set_docref IMPORTING iv_docref TYPE /s4tax/t4s_sheet-docref,
 
       get_itmref RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-itmref,
-      set_itmref IMPORTING iv_itmref TYPE /s4tax/t4s_sheet-itmref.
+      set_itmref IMPORTING iv_itmref TYPE /s4tax/t4s_sheet-itmref,
+
+      get_status_business RETURNING VALUE(result) TYPE /s4tax/t4s_sheet-status_business,
+      set_status_business IMPORTING iv_status_business TYPE /s4tax/t4s_sheet-status_business.
 
   PROTECTED SECTION.
   PRIVATE SECTION.
@@ -200,6 +203,14 @@ CLASS /s4tax/model_t4s_sheet IMPLEMENTATION.
 
   METHOD set_order_number.
     me->struct-order_number = iv_order_number.
+  ENDMETHOD.
+
+  METHOD get_status_business.
+    result = me->struct-status_business.
+  ENDMETHOD.
+
+  METHOD set_status_business.
+    me->struct-status_business = iv_status_business.
   ENDMETHOD.
 
 ENDCLASS.

@@ -17,6 +17,7 @@ CLASS service_alv DEFINITION.
       BEGIN OF c_okcode,
         modificar_pedido TYPE sy-ucomm VALUE 'MODIFY',
         gerar_migo       TYPE sy-ucomm VALUE 'MIGO',
+        integrar         TYPE sy-ucomm VALUE 'INTEGRATE',
       END OF c_okcode.
 
     METHODS:
@@ -54,15 +55,19 @@ CLASS service_alv DEFINITION.
                                     poitemx   TYPE bapimepoitemx
                           CHANGING  result    TYPE bapiret2_tab,
 
-      log_bapi_return IMPORTING bapi_return TYPE bapiret2_tab
-                                reporter    TYPE REF TO /s4tax/ireporter.
+      log_bapi_return IMPORTING bapi_return   TYPE bapiret2_tab
+                                reporter      TYPE REF TO /s4tax/ireporter
+                      RETURNING VALUE(result) TYPE abap_bool.
 
 
   PRIVATE SECTION.
     DATA: alv              TYPE REF TO cl_gui_alv_grid,
           appointments_alv TYPE /s4tax/s_appointments_4s_alv_t,
           layout           TYPE lvc_s_layo,
-          ddic_utils       TYPE REF TO /s4tax/ddic_utils.
+          ddic_utils       TYPE REF TO /s4tax/ddic_utils,
+          reporter         TYPE REF TO /s4tax/ireporter.
+
+
     METHODS:
       get_fieldcat RETURNING VALUE(result) TYPE lvc_t_fcat,
 
@@ -70,7 +75,7 @@ CLASS service_alv DEFINITION.
 
       set_exclude_buttons RETURNING VALUE(result) TYPE ui_functions,
 
-      handle_toolbar      FOR EVENT toolbar OF cl_gui_alv_grid
+      handle_toolbar FOR EVENT toolbar OF cl_gui_alv_grid
         IMPORTING e_object e_interactive,
 
       display_log IMPORTING data TYPE REF TO /s4tax/s_appointments_4s_alv,
@@ -79,12 +84,22 @@ CLASS service_alv DEFINITION.
         IMPORTING es_row_no e_column_id e_row_id,
 
       handle_user_command FOR EVENT user_command OF cl_gui_alv_grid
-        IMPORTING e_ucomm.
+        IMPORTING e_ucomm,
+
+      create_ref_doc_supp_portal IMPORTING sheet         TYPE REF TO /s4tax/4s_sheet
+                                 RETURNING VALUE(result) TYPE REF TO /s4tax/supp_doc_reference.
 
 ENDCLASS.
 
 CLASS service_alv IMPLEMENTATION.
   METHOD constructor.
+    DATA: settings        TYPE REF TO /s4tax/reporter_settings.
+
+    CREATE OBJECT settings.
+    settings->/s4tax/ireporter_settings~set_autosave( i_auto_save = abap_false ).
+    reporter = /s4tax/reporter_factory=>create( object = /s4tax/reporter_factory=>object-s4tax
+                                                subobject = /s4tax/reporter_factory=>subobject-four_service ).
+
     CREATE OBJECT ddic_utils.
     CREATE OBJECT me->alv EXPORTING i_parent = container.
     me->display_alv(  ).
@@ -105,7 +120,7 @@ CLASS service_alv IMPLEMENTATION.
     ENDIF.
 
     CASE e_column_id-fieldname.
-      WHEN 'STATUS'.
+      WHEN 'STATUS' OR 'STATUS_BUSINESS'.
         me->display_log( data ).
     ENDCASE.
   ENDMETHOD.
@@ -117,7 +132,6 @@ CLASS service_alv IMPLEMENTATION.
     ENDIF.
 
     IF data->reporter IS NOT BOUND.
-      RETURN.
     ENDIF.
 
     data->reporter->fullscreen( ).
@@ -193,6 +207,15 @@ CLASS service_alv IMPLEMENTATION.
           lr_field->scrtext_l = 'Usuário'.
 
         WHEN 'STATUS'.
+          lr_field->scrtext_s = 'Integração'.
+          lr_field->scrtext_m = 'Integração'.
+          lr_field->scrtext_l = 'Status de Integração'.
+          lr_field->hotspot = abap_true.
+
+        WHEN 'STATUS_BUSINESS'.
+          lr_field->scrtext_s = 'Status Neg.'.
+          lr_field->scrtext_m = 'Status Neg.'.
+          lr_field->scrtext_l = 'Status Negócio'.
           lr_field->hotspot = abap_true.
       ENDCASE.
 
@@ -256,6 +279,12 @@ CLASS service_alv IMPLEMENTATION.
     toolbar-text      = TEXT-007.
     toolbar-quickinfo = TEXT-007.
     APPEND toolbar TO e_object->mt_toolbar.
+
+    toolbar-function  = c_okcode-integrar.
+    toolbar-icon      = icon_system_play.
+    toolbar-text      = TEXT-008.
+    toolbar-quickinfo = TEXT-008.
+    APPEND toolbar TO e_object->mt_toolbar.
   ENDMETHOD.
 
   METHOD set_exclude_buttons.
@@ -305,7 +334,9 @@ CLASS service_alv IMPLEMENTATION.
 
   METHOD handle_user_command.
     DATA: selected_lines TYPE lvc_t_row,
-          require        TYPE abap_bool.
+          require        TYPE abap_bool,
+          has_errors     TYPE abap_bool,
+          has_warnings   TYPE abap_bool.
 
     selected_lines = get_selected_lines( ).
 
@@ -322,33 +353,26 @@ CLASS service_alv IMPLEMENTATION.
         me->change_purchase_order_alv( selected_lines ).
     ENDCASE.
 
+    has_errors = reporter->has_errors( ).
+    has_warnings = reporter->has_warnings( ).
+
+    IF has_errors = abap_true OR has_warnings = abap_true.
+      reporter->popup( ).
+    ENDIF.
+
   ENDMETHOD.
 
   METHOD change_purchase_order.
-    DATA: poheader       TYPE bapimepoheader,
-          poheaderx      TYPE bapimepoheaderx,
-          poitem         TYPE bapimepoitem,
-          poitemx        TYPE bapimepoitemx,
-          return_table   TYPE STANDARD TABLE OF bapiret2,
-          msg            TYPE string,
-          reporter_sheet TYPE REF TO /s4tax/ireporter.
+    DATA: return_table       TYPE STANDARD TABLE OF bapiret2,
+          msg                TYPE string,
+          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet,
+          reporter_sheet     TYPE REF TO /s4tax/ireporter.
+
+    CREATE OBJECT dal_4service_sheet TYPE /s4tax/dal_4service_sheet.
 
     reporter_sheet = service_sheet->get_reporter( ).
 
-    poheader-po_number = service_sheet->struct-order_number.
-    poheaderx-po_number = 'X'.
-
-    poitem-po_item = service_sheet->struct-order_item.
-    poitemx-po_item = service_sheet->struct-order_item.
-    poitem-net_price = service_sheet->struct-approved_value.
-    poitemx-net_price = 'X'.
-    poitem-gr_ind = 'X'.
-    poitemx-gr_ind = 'X'.
-    poitem-gr_non_val = 'X'.
-    poitemx-gr_non_val = 'X'.
-
-    call_bapi_po_change( EXPORTING poheader = poheader poheaderx = poheaderx poitem = poitem poitemx = poitemx
-                         CHANGING result = return_table ).
+    return_table = dal_4service_sheet->change_purchase_order( service_sheet ).
 
     READ TABLE return_table TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
@@ -362,48 +386,25 @@ CLASS service_alv IMPLEMENTATION.
       call_bapi_transaction_rollback( ).
     ENDIF.
 
-    log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
+    result = log_bapi_return( bapi_return = return_table reporter = reporter_sheet ).
   ENDMETHOD.
 
   METHOD generate_migo.
-    DATA: header            TYPE bapi2017_gm_head_01,
-          gm_code           TYPE bapi2017_gm_code,
-          item_create_table TYPE tab_bapi_goodsmvt_item,
-          migo_created      TYPE bapi2017_gm_head_ret,
-          item              TYPE bapi2017_gm_item_create,
-          return            TYPE STANDARD TABLE OF bapiret2,
-          msg               TYPE string,
-          string_utils      TYPE REF TO /s4tax/string_utils,
-          reporter_sheet    TYPE REF TO /s4tax/ireporter,
-          material_created  TYPE /s4tax/t4s_sheet-docref.
+    DATA: return             TYPE STANDARD TABLE OF bapiret2,
+          msg                TYPE string,
+          reporter_sheet     TYPE REF TO /s4tax/ireporter,
+          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet.
 
-    CREATE OBJECT string_utils.
     reporter_sheet = service_sheet->get_reporter( ).
 
-    header-pstng_date = sy-datum.
-    header-doc_date = sy-datum.
-    header-ref_doc_no = string_utils->concatenate( msg1      = service_sheet->struct-order_number
-                                                   msg2      = service_sheet->struct-order_item
-                                                   separator = '-' ).
-    gm_code = '01'.
-    item-move_type = '101'.
-    item-po_number = service_sheet->struct-order_number.
-    item-po_item   = service_sheet->struct-order_item.
-    item-no_more_gr   = 'X'.
-    item-mvt_ind =  'B'.
+    CREATE OBJECT dal_4service_sheet TYPE /s4tax/dal_4service_sheet.
 
-    APPEND item TO item_create_table.
-
-    me->call_bapi_goodsmvt_create( EXPORTING goodsmvt_header = header goodsmvt_code       = gm_code
-                                   CHANGING  result = return goodsmvt_item_table = item_create_table goodsmvt_headret = migo_created ).
+    return = dal_4service_sheet->generate_migo( service_sheet ).
 
     READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
       call_bapi_transaction_commit( ).
       result = abap_true.
-
-      material_created = migo_created-mat_doc.
-      service_sheet->set_docref( material_created ).
       "service_sheet->set_itmref( item_created-matdoc_itm ).
     ELSE.
       service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
@@ -412,7 +413,7 @@ CLASS service_alv IMPLEMENTATION.
       reporter_sheet->error( msg ).
     ENDIF.
 
-    log_bapi_return( bapi_return = return reporter = reporter_sheet ).
+    result = log_bapi_return( bapi_return = return reporter = reporter_sheet ).
   ENDMETHOD.
 
   METHOD call_bapi_goodsmvt_create.
@@ -447,6 +448,7 @@ CLASS service_alv IMPLEMENTATION.
       CONCATENATE return-type return-id return-number return-message INTO msg SEPARATED BY '/'.
       IF return-type = 'E'.
         reporter->error( msg ).
+        result = abap_false.
         CONTINUE.
       ENDIF.
       reporter->info( msg ).
@@ -472,34 +474,26 @@ CLASS service_alv IMPLEMENTATION.
         poitemx       = poitemx_table.
   ENDMETHOD.
 
-  METHOD change_purchase_order_alv.
-    DATA: selected_item      TYPE REF TO lvc_s_row,
-          dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
-          alv_line           TYPE REF TO /s4tax/s_appointments_4s_alv,
-          service_sheet      TYPE REF TO /s4tax/4s_sheet.
+  METHOD create_ref_doc_supp_portal.
 
-    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
-
-    LOOP AT selected_lines REFERENCE INTO selected_item.
-      READ TABLE me->appointments_alv REFERENCE INTO alv_line INDEX selected_item->index.
-      IF sy-subrc <> 0.
-        CONTINUE.
-      ENDIF.
-
-      service_sheet = dao_4service_sheet->get_by_appointment_id( alv_line->appointment_id ).
-
-      change_purchase_order( service_sheet ).
-    ENDLOOP.
+    CREATE OBJECT result.
+    result->set_docref( sheet->struct-docref ).
+    result->set_itmref( sheet->struct-itmref ).
+    result->set_credat( sheet->struct-credat ).
+    result->set_source( /s4tax/4service_constants=>source-pedido_compra ).
+    result->set_updated_name( sy-uname ).
 
   ENDMETHOD.
 
-  METHOD generate_migo_alv.
+  METHOD change_purchase_order_alv.
     DATA: selected_item      TYPE REF TO lvc_s_row,
-          dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
           alv_line           TYPE REF TO /s4tax/s_appointments_4s_alv,
-          service_sheet      TYPE REF TO /s4tax/4s_sheet.
-
-    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
+          service_sheet      TYPE REF TO /s4tax/4s_sheet,
+          po_change_success  TYPE abap_bool,
+          dao_4service_sheet TYPE REF TO /s4tax/idao_4service_sheet,
+          service_sheet_list TYPE /s4tax/4s_sheet_t,
+          reporter_sheet     TYPE REF TO /s4tax/ireporter,
+          msg                TYPE string.
 
     LOOP AT selected_lines REFERENCE INTO selected_item.
       READ TABLE me->appointments_alv REFERENCE INTO alv_line INDEX selected_item->index.
@@ -507,10 +501,76 @@ CLASS service_alv IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      service_sheet = dao_4service_sheet->get_by_appointment_id( alv_line->appointment_id ).
+      service_sheet = alv_line->service_sheet.
+      reporter_sheet = service_sheet->get_reporter( ).
 
-      generate_migo( service_sheet ).
+      IF service_sheet->struct-status_business <> /s4tax/4service_constants=>business_status-order_edit_error.
+        MESSAGE e005(/s4tax/4service) INTO msg.
+        reporter->error( msg ).
+        RETURN.
+      ENDIF.
+
+      po_change_success = change_purchase_order( service_sheet ).
+
+      IF po_change_success = abap_false.
+        service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+        service_sheet->set_status_business( /s4tax/4service_constants=>business_status-order_edit_error ).
+        CONTINUE.
+      ENDIF.
+
+      service_sheet->set_status_business( /s4tax/4service_constants=>business_status-order_edit_success ).
+      APPEND service_sheet TO service_sheet_list.
     ENDLOOP.
+
+    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
+    dao_4service_sheet->save_many( service_sheet_list ).
+  ENDMETHOD.
+
+  METHOD generate_migo_alv.
+    DATA: selected_item         TYPE REF TO lvc_s_row,
+          alv_line              TYPE REF TO /s4tax/s_appointments_4s_alv,
+          service_sheet         TYPE REF TO /s4tax/4s_sheet,
+          is_generated          TYPE abap_bool,
+          dao_4service_sheet    TYPE REF TO /s4tax/idao_4service_sheet,
+          reference_doc         TYPE REF TO /s4tax/supp_doc_reference,
+          dao_sup_doc_reference TYPE REF TO /s4tax/idao_supp_doc_reference,
+          reference_doc_list    TYPE /s4tax/supp_doc_reference_t,
+          service_sheet_list    TYPE /s4tax/4s_sheet_t,
+          msg                   TYPE string.
+
+    LOOP AT selected_lines REFERENCE INTO selected_item.
+      READ TABLE me->appointments_alv REFERENCE INTO alv_line INDEX selected_item->index.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      service_sheet = alv_line->service_sheet.
+
+      IF service_sheet->struct-status_business <> /s4tax/4service_constants=>business_status-create_migo_error.
+        MESSAGE e006(/s4tax/4service) INTO msg.
+        reporter->error( msg ).
+        CONTINUE.
+      ENDIF.
+
+      is_generated = generate_migo( service_sheet ).
+
+      IF is_generated = abap_false.
+        service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
+        service_sheet->set_status_business( /s4tax/4service_constants=>business_status-create_migo_error ).
+        CONTINUE.
+      ENDIF.
+
+      service_sheet->set_status_business( /s4tax/4service_constants=>business_status-finished ).
+
+      reference_doc = create_ref_doc_supp_portal( service_sheet ).
+      APPEND reference_doc TO reference_doc_list.
+      APPEND service_sheet TO service_sheet_list.
+    ENDLOOP.
+    CREATE OBJECT dao_4service_sheet TYPE /s4tax/dao_4s_sheet.
+    CREATE OBJECT dao_sup_doc_reference TYPE /s4tax/dao_supp_doc_reference.
+
+    dao_4service_sheet->save_many( service_sheet_list ).
+    dao_sup_doc_reference->save_many( reference_doc_list ).
   ENDMETHOD.
 
 ENDCLASS.
@@ -641,6 +701,7 @@ CLASS main IMPLEMENTATION.
     service_sheet_table = me->select_range_data(  ).
 
     LOOP AT service_sheet_table INTO service_sheet.
+      alv_line-service_sheet = service_sheet.
       alv_line-appointment_id = service_sheet->get_appointment_id(  ).
       alv_line-approved_value = service_sheet->get_approved_value(  ).
       alv_line-branch_id = service_sheet->get_branch_id(  ).
@@ -666,11 +727,28 @@ CLASS main IMPLEMENTATION.
         alv_line-update_at = date->to_usual_date_format(  ).
       ENDIF.
 
+      CASE service_sheet->struct-status_business.
+        WHEN /s4tax/4service_constants=>business_status-order_edit_success.
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_yellow text = TEXT-012 ).
+
+        WHEN /s4tax/4service_constants=>business_status-create_migo_success OR
+             /s4tax/4service_constants=>business_status-finished.
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_green text = TEXT-009 ).
+
+        WHEN /s4tax/4service_constants=>business_status-order_edit_error.
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-011 ).
+
+        WHEN /s4tax/4service_constants=>business_status-create_migo_error.
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-010 ).
+      ENDCASE.
+
       CASE service_sheet->struct-status.
         WHEN /s4tax/4service_constants=>timesheet_status-in_process.
           alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_activity text = TEXT-000 ).
+
         WHEN /s4tax/4service_constants=>timesheet_status-finished.
           alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_led_green text = TEXT-001 ).
+
         WHEN /s4tax/4service_constants=>timesheet_status-error.
           alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-002 ).
       ENDCASE.

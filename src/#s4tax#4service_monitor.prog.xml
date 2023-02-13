@@ -249,6 +249,36 @@
      <LENGTH>20</LENGTH>
     </item>
     <item>
+     <ID>I</ID>
+     <KEY>008</KEY>
+     <ENTRY>Integrar</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>009</KEY>
+     <ENTRY>Finalizado</ENTRY>
+     <LENGTH>20</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>010</KEY>
+     <ENTRY>Criação MIGO: Erro</ENTRY>
+     <LENGTH>19</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>011</KEY>
+     <ENTRY>Modificar Pedido: Erro</ENTRY>
+     <LENGTH>44</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>012</KEY>
+     <ENTRY>Modificar Pedido: Sucesso</ENTRY>
+     <LENGTH>50</LENGTH>
+    </item>
+    <item>
      <ID>R</ID>
      <ENTRY>Monitor de apontamentos para o 4Service</ENTRY>
      <LENGTH>39</LENGTH>

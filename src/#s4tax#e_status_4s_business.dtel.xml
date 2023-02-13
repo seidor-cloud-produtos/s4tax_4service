@@ -3,18 +3,14 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <DD04V>
-    <ROLLNAME>/S4TAX/E_STATUS_4S_SHEET</ROLLNAME>
+    <ROLLNAME>/S4TAX/E_STATUS_4S_BUSINESS</ROLLNAME>
     <DDLANGUAGE>P</DDLANGUAGE>
-    <DOMNAME>/S4TAX/D_STATUS_4S_SHEET</DOMNAME>
+    <DOMNAME>/S4TAX/D_STATUS_4S_BUSINESS</DOMNAME>
     <HEADLEN>55</HEADLEN>
     <SCRLEN1>10</SCRLEN1>
     <SCRLEN2>20</SCRLEN2>
     <SCRLEN3>40</SCRLEN3>
-    <DDTEXT>Status dos apontamentos</DDTEXT>
-    <REPTEXT>Status de Integração do Apontamento</REPTEXT>
-    <SCRTEXT_S>Status Int</SCRTEXT_S>
-    <SCRTEXT_M>Status de Integ</SCRTEXT_M>
-    <SCRTEXT_L>Status de Integração do Apontamento</SCRTEXT_L>
+    <DDTEXT>Status para regras de negócio do 4Service</DDTEXT>
     <DTELMASTER>P</DTELMASTER>
     <REFKIND>D</REFKIND>
    </DD04V>
