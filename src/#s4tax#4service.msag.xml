@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_MSAG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <T100A>
+    <ARBGB>/S4TAX/4SERVICE</ARBGB>
+    <MASTERLANG>P</MASTERLANG>
+    <STEXT>Mensagens para a integração do 4Service</STEXT>
+   </T100A>
+   <T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>000</MSGNR>
+     <TEXT>Não foi possível processar o apontamentamento: &amp;</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>001</MSGNR>
+     <TEXT>Não foi possível realizar a criação do MIGO do apontamento: &amp;</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>002</MSGNR>
+     <TEXT>Apontamento criado. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>003</MSGNR>
+     <TEXT>Erro ao criar apontamento. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>004</MSGNR>
+     <TEXT>Não foi possível alterar o Pedido. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>005</MSGNR>
+     <TEXT>Impossível Modificar Pedido, pois ele não se encontra com erro.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>P</SPRSL>
+     <ARBGB>/S4TAX/4SERVICE</ARBGB>
+     <MSGNR>006</MSGNR>
+     <TEXT>Impossível gerar MIGO, pois ela não se encontra com erro.</TEXT>
+    </T100>
+   </T100>
+  </asx:values>
+ </asx:abap>
+</abapGit>
