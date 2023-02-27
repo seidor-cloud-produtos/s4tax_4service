@@ -24,7 +24,6 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
           poheaderx          TYPE bapimepoheaderx,
           poitem             TYPE bapimepoitem,
           poitemx            TYPE bapimepoitemx,
-          reporter_sheet     TYPE REF TO /s4tax/ireporter,
           dal_purchasing_doc TYPE REF TO /s4tax/idal_purchasing_doc.
 
     poheader-po_number = service_sheet->struct-order_number.
@@ -51,13 +50,13 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
     DATA: header                TYPE bapi2017_gm_head_01,
           gm_code               TYPE bapi2017_gm_code,
           item_create_table     TYPE tab_bapi_goodsmvt_item,
-          migo_created          TYPE bapi2017_gm_head_ret,
           item                  TYPE bapi2017_gm_item_create,
-          return                TYPE STANDARD TABLE OF bapiret2,
           string_utils          TYPE REF TO /s4tax/string_utils,
-          reporter_sheet        TYPE REF TO /s4tax/ireporter,
           material_created      TYPE /s4tax/t4s_sheet-docref,
-          dal_material_document TYPE REF TO /s4tax/idal_material_document.
+          dal_material_document TYPE REF TO /s4tax/idal_material_document,
+          itmref                TYPE /s4tax/t4s_sheet-itmref,
+          goodsmvt_items        TYPE /s4tax/idal_material_document=>item_show_tab,
+          goodsmvt_item         TYPE bapi2017_gm_item_show.
 
     CREATE OBJECT string_utils.
 
@@ -81,12 +80,11 @@ CLASS /s4tax/dal_4service_sheet IMPLEMENTATION.
 
     dal_material_document->call_bapi_goodsmvt_create( EXPORTING goodsmvt_header = header goodsmvt_code       = gm_code
                                                       CHANGING  result = return goodsmvt_item_table = item_create_table
-                                                      goodsmvt_headret = migo_created ).
+                                                      goodsmvt_headret = migo_created  ).
+
     material_created = migo_created-mat_doc.
     service_sheet->set_docref( material_created ).
-
-    result = return.
-  ENDMETHOD.
+    ENDMETHOD.
 
   METHOD constructor.
 

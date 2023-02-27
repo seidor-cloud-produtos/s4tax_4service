@@ -5,6 +5,7 @@
    <PROGDIR>
     <NAME>/S4TAX/4SERVICE_MONITOR</NAME>
     <DBAPL>S</DBAPL>
+    <DBNA>D$</DBNA>
     <SUBC>1</SUBC>
     <FIXPT>X</FIXPT>
     <LDBNAME>D$S</LDBNAME>
@@ -195,7 +196,7 @@
     <TIT>
      <RSMPE_TITT>
       <CODE>T9000</CODE>
-      <TEXT>&amp; &amp; &amp;</TEXT>
+      <TEXT>&amp; &amp;</TEXT>
      </RSMPE_TITT>
     </TIT>
    </CUA>
@@ -220,14 +221,8 @@
     </item>
     <item>
      <ID>I</ID>
-     <KEY>003</KEY>
-     <ENTRY>Apontamentos</ENTRY>
-     <LENGTH>22</LENGTH>
-    </item>
-    <item>
-     <ID>I</ID>
      <KEY>004</KEY>
-     <ENTRY>Apontamentos encontrados</ENTRY>
+     <ENTRY>apontamento(s) encontrado(s)</ENTRY>
      <LENGTH>48</LENGTH>
     </item>
     <item>
@@ -280,8 +275,8 @@
     </item>
     <item>
      <ID>R</ID>
-     <ENTRY>Monitor de apontamentos para o 4Service</ENTRY>
-     <LENGTH>39</LENGTH>
+     <ENTRY>Monitor 4Service</ENTRY>
+     <LENGTH>16</LENGTH>
     </item>
     <item>
      <ID>S</ID>
@@ -326,14 +321,8 @@
       </item>
       <item>
        <ID>I</ID>
-       <KEY>003</KEY>
-       <ENTRY>Appointments</ENTRY>
-       <LENGTH>22</LENGTH>
-      </item>
-      <item>
-       <ID>I</ID>
        <KEY>004</KEY>
-       <ENTRY>Found Appointments</ENTRY>
+       <ENTRY>found</ENTRY>
        <LENGTH>48</LENGTH>
       </item>
       <item>
@@ -353,6 +342,36 @@
        <KEY>007</KEY>
        <ENTRY>Generate Migo</ENTRY>
        <LENGTH>20</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>008</KEY>
+       <ENTRY>Integrate</ENTRY>
+       <LENGTH>18</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>009</KEY>
+       <ENTRY>Finished</ENTRY>
+       <LENGTH>20</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>010</KEY>
+       <ENTRY>Create MIGO: Error</ENTRY>
+       <LENGTH>19</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>011</KEY>
+       <ENTRY>Modify Order: Error</ENTRY>
+       <LENGTH>44</LENGTH>
+      </item>
+      <item>
+       <ID>I</ID>
+       <KEY>012</KEY>
+       <ENTRY>Modify Order: Success</ENTRY>
+       <LENGTH>50</LENGTH>
       </item>
       <item>
        <ID>R</ID>

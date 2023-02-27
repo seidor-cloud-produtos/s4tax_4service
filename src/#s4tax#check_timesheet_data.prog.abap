@@ -145,7 +145,8 @@ CLASS main_process IMPLEMENTATION.
           final_date         TYPE REF TO /s4tax/date,
           sheet_table        TYPE /s4tax/t4s_sheet_t,
           dal_purchasing_doc TYPE REF TO /s4tax/idal_purchasing_doc,
-          range_utils        TYPE REF TO /s4tax/range_utils.
+          range_utils        TYPE REF TO /s4tax/range_utils,
+          lifnr_range        TYPE ace_generic_range_t.
 
 
     TRY.
@@ -169,8 +170,10 @@ CLASS main_process IMPLEMENTATION.
 
         dal_purchasing_doc = dao_pack_gen_data->purchasing_document_dal(  ).
 
+        lifnr_range = range_utils->specific_range( range = partner_table low = 'PARID' ).
+
         order_table = dal_purchasing_doc->get_simple_purchase(
-                        partner_table = partner_table
+                        lifnr_range = lifnr_range
                         initial_date  = initial_date->date
                         final_date    = final_date->date
                       ).
@@ -250,6 +253,10 @@ CLASS main_process IMPLEMENTATION.
                                           IMPORTING result = sheet-employment_erp_code ).
 
             LOOP AT employee-confirm_appointments INTO confirm_appointment.
+              IF confirm_appointment-must_pay = abap_true.
+                CONTINUE.
+              ENDIF.
+
               READ TABLE current_4service_list WITH KEY table_line->struct-appointment_id = confirm_appointment-id TRANSPORTING NO FIELDS.
               IF sy-subrc = 0.
                 CONTINUE.
@@ -376,27 +383,48 @@ CLASS main_process IMPLEMENTATION.
 
 
   METHOD generate_migo.
-    DATA: return             TYPE STANDARD TABLE OF bapiret2,
-          msg                TYPE string,
-          reporter_sheet     TYPE REF TO /s4tax/ireporter,
-          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet.
+    DATA: msg                   TYPE string,
+          reporter_sheet        TYPE REF TO /s4tax/ireporter,
+          dal_material_document TYPE REF TO /s4tax/idal_material_document,
+          dal_4service_sheet    TYPE REF TO /s4tax/idal_4service_sheet,
+          migo_created          TYPE bapi2017_gm_head_ret,
+          return                TYPE bapiret2_tab,
+          return_get_detail     TYPE bapiret2_tab,
+          goodsmvt_items        TYPE /s4tax/idal_material_document=>item_show_tab,
+          goodsmvt_item         TYPE bapi2017_gm_item_show,
+          itmref                TYPE /s4tax/t4s_sheet-itmref.
 
     reporter_sheet = service_sheet->get_reporter( ).
 
     dal_4service_sheet = me->dao_pack_4service->dal_4service_sheet(  ).
 
-    return = dal_4service_sheet->generate_migo( service_sheet ).
+    dal_4service_sheet->generate_migo(
+      EXPORTING
+        service_sheet = service_sheet
+      IMPORTING
+        migo_created  = migo_created
+        return        = return
+    ).
 
     READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
       call_bapi_transaction_commit( ).
       result = abap_true.
-      "service_sheet->set_itmref( item_created-matdoc_itm ).
     ELSE.
       service_sheet->set_status( /s4tax/4service_constants=>timesheet_status-error ).
       call_bapi_transaction_rollback( ).
       MESSAGE e001(/s4tax/4service) WITH service_sheet->struct-order_number INTO msg.
       reporter_sheet->error( msg ).
+    ENDIF.
+
+    dal_material_document = me->dao_pack_4service->material_document_dal(  ).
+
+    dal_material_document->call_bapi_goodsmvt_getdetail( EXPORTING materialdocument = migo_created-mat_doc matdocumentyear  = migo_created-doc_year
+                                                          CHANGING goodsmvt_items   = goodsmvt_items result           = return_get_detail ).
+    READ TABLE goodsmvt_items INTO goodsmvt_item INDEX 1.
+    IF sy-subrc = 0.
+      itmref = goodsmvt_item-matdoc_itm.
+      service_sheet->set_itmref( itmref ).
     ENDIF.
 
     result = log_bapi_return( bapi_return = return reporter = reporter_sheet ).

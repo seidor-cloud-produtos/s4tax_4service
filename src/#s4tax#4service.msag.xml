@@ -30,7 +30,7 @@
      <SPRSL>P</SPRSL>
      <ARBGB>/S4TAX/4SERVICE</ARBGB>
      <MSGNR>003</MSGNR>
-     <TEXT>Erro ao criar apontamento. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
+     <TEXT>Erro ao recuperar o pedido do Apontamento. Data: &amp; CNPJ: &amp; Num. pedido: &amp;</TEXT>
     </T100>
     <T100>
      <SPRSL>P</SPRSL>

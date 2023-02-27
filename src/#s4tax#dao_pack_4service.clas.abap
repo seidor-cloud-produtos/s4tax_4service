@@ -49,28 +49,4 @@ CLASS /s4tax/dao_pack_4service IMPLEMENTATION.
     result = me->dal_4service_sheet.
   ENDMETHOD.
 
-  METHOD /s4tax/idao_pack_4service~material_document.
-    IF me->material_document IS NOT BOUND.
-      CREATE OBJECT me->material_document TYPE /s4tax/dao_material_document.
-    ENDIF.
-
-    result = me->material_document.
-  ENDMETHOD.
-
-  METHOD /s4tax/idao_pack_4service~material_doc_seg.
-    IF me->material_doc_seg IS NOT BOUND.
-      CREATE OBJECT me->material_doc_seg TYPE /s4tax/dao_material_doc_seg.
-    ENDIF.
-
-    result = me->material_doc_seg.
-  ENDMETHOD.
-
-  METHOD /s4tax/idao_pack_4service~material_document_dal.
-    IF me->material_document_dal IS NOT BOUND.
-      CREATE OBJECT me->material_document_dal TYPE /s4tax/dal_material_document.
-    ENDIF.
-
-    result = me->material_document_dal.
-  ENDMETHOD.
-
 ENDCLASS.

@@ -159,53 +159,6 @@ CLASS service_alv IMPLEMENTATION.
     LOOP AT result REFERENCE INTO lr_field.
 
       CASE lr_field->fieldname.
-        WHEN 'APPOINTMENT_ID'.
-          lr_field->scrtext_s = 'Id Apont.'.
-          lr_field->scrtext_m = 'Id Apont.'.
-          lr_field->scrtext_l = 'Id do Apontamento'.
-        WHEN 'START_PERIOD'.
-          lr_field->scrtext_s = 'Início do período'.
-          lr_field->scrtext_m = 'Início do período'.
-          lr_field->scrtext_l = 'Início do período'.
-        WHEN 'END_PERIOD'.
-          lr_field->scrtext_s = 'Final do período'.
-          lr_field->scrtext_m = 'Final do período'.
-          lr_field->scrtext_l = 'Final do período'.
-        WHEN 'BRANCH_ID'.
-          lr_field->scrtext_s = 'Id filial'.
-          lr_field->scrtext_m = 'Id filial'.
-          lr_field->scrtext_l = 'Id filial'.
-
-        WHEN 'PROVIDER_FISCAL_ID_NUMBER'.
-          lr_field->scrtext_s = 'CNPJ da empresa'.
-          lr_field->scrtext_m = 'CNPJ da empresa'.
-          lr_field->scrtext_l = 'CNPJ da empresa'.
-
-        WHEN 'EMPLOYMENT_ERP_CODE'.
-          lr_field->scrtext_s = 'Código ERP'.
-          lr_field->scrtext_m = 'Código ERP'.
-          lr_field->scrtext_l = 'Código ERP'.
-
-        WHEN 'APPROVED_VALUE'.
-          lr_field->scrtext_s = 'Valor a receber'.
-          lr_field->scrtext_m = 'Valor a receber'.
-          lr_field->scrtext_l = 'Valor a receber'.
-
-        WHEN 'CREDAT'.
-          lr_field->scrtext_s = 'Data de criação'.
-          lr_field->scrtext_m = 'Data de criação'.
-          lr_field->scrtext_l = 'Data de criação'.
-
-        WHEN 'UPDATE_AT'.
-          lr_field->scrtext_s = 'Data de at.'.
-          lr_field->scrtext_m = 'Data de atualização'.
-          lr_field->scrtext_l = 'Data de atualização'.
-
-        WHEN 'UPDATE_NAME'.
-          lr_field->scrtext_s = 'Usuário'.
-          lr_field->scrtext_m = 'Usuário'.
-          lr_field->scrtext_l = 'Usuário'.
-
         WHEN 'STATUS'.
           lr_field->scrtext_s = 'Integração'.
           lr_field->scrtext_m = 'Integração'.
@@ -268,6 +221,12 @@ CLASS service_alv IMPLEMENTATION.
   METHOD handle_toolbar.
     DATA: toolbar TYPE stb_button.
 
+    toolbar-function  = c_okcode-integrar.
+    toolbar-icon      = icon_system_play.
+    toolbar-text      = TEXT-008.
+    toolbar-quickinfo = TEXT-008.
+    APPEND toolbar TO e_object->mt_toolbar.
+
     toolbar-function  = c_okcode-modificar_pedido.
     toolbar-icon      = icon_change_text.
     toolbar-text      = TEXT-006.
@@ -278,12 +237,6 @@ CLASS service_alv IMPLEMENTATION.
     toolbar-icon      = icon_new_task.
     toolbar-text      = TEXT-007.
     toolbar-quickinfo = TEXT-007.
-    APPEND toolbar TO e_object->mt_toolbar.
-
-    toolbar-function  = c_okcode-integrar.
-    toolbar-icon      = icon_system_play.
-    toolbar-text      = TEXT-008.
-    toolbar-quickinfo = TEXT-008.
     APPEND toolbar TO e_object->mt_toolbar.
   ENDMETHOD.
 
@@ -393,13 +346,24 @@ CLASS service_alv IMPLEMENTATION.
     DATA: return             TYPE STANDARD TABLE OF bapiret2,
           msg                TYPE string,
           reporter_sheet     TYPE REF TO /s4tax/ireporter,
-          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet.
+          dal_4service_sheet TYPE REF TO /s4tax/idal_4service_sheet,
+          dal_material_doc   TYPE REF TO /s4tax/idal_material_document,
+          migo_created       TYPE bapi2017_gm_head_ret,
+          goodsmvt_items     TYPE /s4tax/idal_material_document=>item_show_tab,
+          goodsmvt_item      TYPE bapi2017_gm_item_show,
+          itmref             TYPE /s4tax/t4s_sheet-itmref.
 
     reporter_sheet = service_sheet->get_reporter( ).
 
     CREATE OBJECT dal_4service_sheet TYPE /s4tax/dal_4service_sheet.
 
-    return = dal_4service_sheet->generate_migo( service_sheet ).
+    dal_4service_sheet->generate_migo(
+      EXPORTING
+        service_sheet = service_sheet
+      IMPORTING
+        migo_created  = migo_created
+        return        = return
+    ).
 
     READ TABLE return TRANSPORTING NO FIELDS WITH KEY type = 'E'.
     IF sy-subrc <> 0.
@@ -411,6 +375,23 @@ CLASS service_alv IMPLEMENTATION.
       call_bapi_transaction_rollback( ).
       MESSAGE e001(/s4tax/4service) WITH service_sheet->struct-order_number INTO msg.
       reporter_sheet->error( msg ).
+    ENDIF.
+
+    CREATE OBJECT dal_material_doc TYPE /s4tax/dal_material_document.
+
+    dal_material_doc->call_bapi_goodsmvt_getdetail(
+      EXPORTING
+        materialdocument = migo_created-mat_doc
+        matdocumentyear  = migo_created-doc_year
+      CHANGING
+        goodsmvt_items   = goodsmvt_items
+        result           = return
+    ).
+
+    READ TABLE goodsmvt_items INTO goodsmvt_item INDEX 1.
+    IF sy-subrc = 0.
+      itmref = goodsmvt_item-matdoc_itm.
+      service_sheet->set_itmref( itmref ).
     ENDIF.
 
     result = log_bapi_return( bapi_return = return reporter = reporter_sheet ).
@@ -695,8 +676,11 @@ CLASS main IMPLEMENTATION.
   METHOD mount_main_alv.
     DATA: service_sheet       TYPE REF TO /s4tax/4s_sheet,
           alv_line            TYPE /s4tax/s_appointments_4s_alv,
+          credat              TYPE string,
+          update_at           TYPE /s4tax/t4s_sheet-update_at,
           service_sheet_table TYPE /s4tax/4s_sheet_t,
-          date                TYPE REF TO /s4tax/date.
+          date                TYPE REF TO /s4tax/date,
+          cx_root             TYPE REF TO cx_root.
 
     service_sheet_table = me->select_range_data(  ).
 
@@ -709,22 +693,32 @@ CLASS main IMPLEMENTATION.
       alv_line-end_period = service_sheet->get_end_period(  ).
       alv_line-provider_fiscal_id_number = service_sheet->get_provider_fiscal_id_number(  ).
       alv_line-start_period = service_sheet->get_start_period(  ).
-      alv_line-update_at = service_sheet->get_update_at(  ).
       alv_line-update_name = service_sheet->get_update_name(  ).
       alv_line-reporter = service_sheet->get_reporter(  ).
-      alv_line-credat = service_sheet->get_credat(  ).
       alv_line-order_item = service_sheet->get_order_item(  ).
       alv_line-order_number = service_sheet->get_order_number(  ).
+      alv_line-docref = service_sheet->get_docref(  ).
+      alv_line-itmref = service_sheet->get_itmref(  ).
 
-      CREATE OBJECT date.
-      IF alv_line-credat IS NOT INITIAL.
-        date->create_by_timestamp( alv_line-credat ).
-        alv_line-credat = date->to_usual_date_format(  ).
+      update_at = service_sheet->get_update_at(  ).
+      credat = service_sheet->get_credat(  ).
+
+      IF credat IS NOT INITIAL.
+        TRY.
+            date = /s4tax/date=>create_by_timestamp( timestamp = credat ).
+            alv_line-created_date = date->date.
+            alv_line-created_time = date->time.
+          CATCH cx_root INTO cx_root.
+        ENDTRY.
       ENDIF.
 
-      IF alv_line-update_at IS NOT INITIAL.
-        date->create_by_timestamp( alv_line-update_at ).
-        alv_line-update_at = date->to_usual_date_format(  ).
+      IF update_at IS NOT INITIAL.
+        TRY.
+            date = /s4tax/date=>create_by_timestamp( timestamp = update_at ).
+            alv_line-update_date = date->date.
+            alv_line-update_time = date->time.
+          CATCH cx_root INTO cx_root.
+        ENDTRY.
       ENDIF.
 
       CASE service_sheet->struct-status_business.
@@ -733,13 +727,13 @@ CLASS main IMPLEMENTATION.
 
         WHEN /s4tax/4service_constants=>business_status-create_migo_success OR
              /s4tax/4service_constants=>business_status-finished.
-          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_green text = TEXT-009 ).
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_green_light text = TEXT-009 ).
 
         WHEN /s4tax/4service_constants=>business_status-order_edit_error.
-          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-011 ).
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_message_error_small text = TEXT-011 ).
 
         WHEN /s4tax/4service_constants=>business_status-create_migo_error.
-          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-010 ).
+          alv_line-status_business = ddic_utils->get_tooltip_icon( icon_name = icon_message_error_small text = TEXT-010 ).
       ENDCASE.
 
       CASE service_sheet->struct-status.
@@ -747,10 +741,10 @@ CLASS main IMPLEMENTATION.
           alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_activity text = TEXT-000 ).
 
         WHEN /s4tax/4service_constants=>timesheet_status-finished.
-          alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_led_green text = TEXT-001 ).
+          alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_green_light text = TEXT-001 ).
 
         WHEN /s4tax/4service_constants=>timesheet_status-error.
-          alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_led_red text = TEXT-002 ).
+          alv_line-status = ddic_utils->get_tooltip_icon( icon_name = icon_message_error_small text = TEXT-002 ).
       ENDCASE.
 
       APPEND alv_line TO main_alv_table.
@@ -793,7 +787,7 @@ CLASS main IMPLEMENTATION.
   METHOD set_screen_details.
     DATA found TYPE i.
     found = lines( me->main_alv_table ).
-    SET TITLEBAR 'T9000' WITH TEXT-003 found TEXT-004.
+    SET TITLEBAR 'T9000' WITH found TEXT-004.
     SET PF-STATUS 'S9000'.
   ENDMETHOD.
 
@@ -820,7 +814,8 @@ DATA: monitor            TYPE REF TO main,
       branch_id_range    TYPE ace_generic_range_t,
       t4s_sheet          TYPE /s4tax/t4s_sheet,
       first_day_of_month TYPE sy-datum,
-      date_last_day      TYPE REF TO /s4tax/date.
+      date_last_day      TYPE REF TO /s4tax/date,
+      date_first_day     TYPE REF TO /s4tax/date.
 
 
 SELECT-OPTIONS: s_fiscal FOR t4s_sheet-provider_fiscal_id_number,
@@ -846,13 +841,14 @@ INITIALIZATION.
   CONCATENATE sy-datum+0(4) sy-datum+4(2) '01' INTO first_day_of_month.
 
   CREATE OBJECT date_last_day EXPORTING date = first_day_of_month.
+  date_first_day = date_last_day->subtract( months = 1 ).
   date_last_day = date_last_day->last_day_of_month(  ).
 
   IF sy-subrc <> 0.
     RETURN.
   ENDIF.
 
-  s_date-low = first_day_of_month.
+  s_date-low = date_first_day->date.
   s_date-high = date_last_day->date.
   s_date-sign = 'I'.
   s_date-option = 'EQ'.
